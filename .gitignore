@@ -8,13 +8,27 @@ dist/
 *.exe.*
 *.zip
 
-# Bases de datos locales (no versionar datos de produccion)
-*.db
+# ------------------------------------------------------------------
+#  Bases de datos
+#
+#  reportes.db SI se versiona: es la BD base (esquema + dispositivo
+#  por defecto, sin datos reales) para que un pull limpio ya arranque
+#  con la base lista. Se regenera con: npm run db:init
+#
+#  El WAL y cualquier otra copia NO se versionan.
+# ------------------------------------------------------------------
 *.db-shm
 *.db-wal
-*.db-*
+*.db-journal
 *.sqlite
 *.sqlite3
+
+# Respaldos de la base (contienen datos de produccion)
+reportes.db.bak*
+reportes.db.pre-*
+reportes.db.consolidated-*
+*.db.dump
+*.sql.gz
 
 # Logs
 *.log

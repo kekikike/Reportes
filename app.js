@@ -24,87 +24,25 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ----------------------------------------------------------------
 //  Base de datos SQLite (historial local)
 // ----------------------------------------------------------------
-const SQLiteDB = require('./sqlitedb');
-const db = new SQLiteDB(path.join(APP_DIR, 'reportes.db'));
+const { initDatabase } = require('./db-init');
+
+/**
+ * Proxy diferido: las rutas se registran antes de que exista la conexion,
+ * pero `db` solo se materializa en bootstrap(). Todas las llamadas se
+ * reenvian a la instancia real.
+ */
+let _db = null;
+const db = new Proxy({}, {
+    get(_t, prop) {
+        if (!_db) throw new Error('La base de datos aun no esta inicializada (falta bootstrap)');
+        const v = _db[prop];
+        return typeof v === 'function' ? v.bind(_db) : v;
+    },
+});
 
 async function bootstrap() {
-    await db.init();
-
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS devices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            ip TEXT NOT NULL,
-            port INTEGER DEFAULT 4370,
-            password INTEGER DEFAULT 0,
-            active INTEGER DEFAULT 1
-        );
-
-        CREATE TABLE IF NOT EXISTS users (
-            device_id INTEGER,
-            uid INTEGER,
-            user_id TEXT,
-            name TEXT,
-            privilege INTEGER DEFAULT 0,
-            synced_at TEXT,
-            PRIMARY KEY (device_id, user_id)
-        );
-
-        CREATE TABLE IF NOT EXISTS departments (
-            code TEXT PRIMARY KEY,
-            name TEXT,
-            updated_at TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS attendance (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            device_id INTEGER,
-            user_id TEXT,
-            name TEXT,
-            timestamp TEXT,
-            status INTEGER,
-            punch INTEGER,
-            synced_at TEXT,
-            UNIQUE(device_id, user_id, timestamp)
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_att_timestamp ON attendance(timestamp);
-        CREATE INDEX IF NOT EXISTS idx_att_device ON attendance(device_id);
-        CREATE INDEX IF NOT EXISTS idx_att_user ON attendance(user_id);
-    `);
-    db.exec("DELETE FROM attendance WHERE timestamp LIKE '%T%Z'");
-
-    // ----------------------------------------------------------------
-    //  Migracion: columna last_records en devices (sincronizacion
-    //  incremental: indice del ultimo ATTLOG sincronizado).
-    // ----------------------------------------------------------------
-    const devCols = db.all('PRAGMA table_info(devices)');
-    if (!devCols.some(c => c.name === 'last_records')) {
-        db.exec('ALTER TABLE devices ADD COLUMN last_records INTEGER DEFAULT 0');
-    }
-    if (!devCols.some(c => c.name === 'last_sync_at')) {
-        db.exec('ALTER TABLE devices ADD COLUMN last_sync_at TEXT');
-    }
-
-    // ----------------------------------------------------------------
-    //  Migracion: departamento (group_id) leido del biometrico + tabla
-    //  de equivalencias codigo -> nombre (el equipo no expone el nombre
-    //  del departamento, solo su codigo).
-    // ----------------------------------------------------------------
-    const userCols = db.all('PRAGMA table_info(users)');
-    if (!userCols.some(c => c.name === 'department')) {
-        db.exec('ALTER TABLE users ADD COLUMN department TEXT');
-    }
-    db.exec('CREATE INDEX IF NOT EXISTS idx_users_department ON users(department)');
-
-    // ----------------------------------------------------------------
-    //  Configuracion por defecto: dispositivo ZKTeco K40
-    // ----------------------------------------------------------------
-    const defaultDevice = db.get('SELECT * FROM devices WHERE ip = ?', '192.168.118.172');
-    if (!defaultDevice) {
-        db.run('INSERT INTO devices (name, ip, port, password) VALUES (?, ?, ?, ?)', ['Biométrico K40', '192.168.118.172', 4370, 0]);
-    }
-    db.save();
+    const info = initDatabase(path.join(APP_DIR, 'reportes.db'));
+    _db = info.db;
 }
 
 function deviceConfig() {

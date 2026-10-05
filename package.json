@@ -6,7 +6,13 @@
   "bin": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "nodemon app.js"
+    "dev": "nodemon app.js",
+    "db:init": "node db-init.js",
+    "db:reset": "node db-init.js --reset",
+    "db:dump": "node db-base.js",
+    "db:backup": "node scripts/db-backup.js",
+    "db:restore": "node scripts/db-restore.js",
+    "db:doctor": "node scripts/db-doctor.js"
   },
   "keywords": [],
   "author": "",
@@ -25,7 +31,11 @@
   },
   "pkg": {
     "scripts": [
-      "app.js"
+      "app.js",
+      "db-init.js",
+      "sqlitedb.js",
+      "pdfgen.js",
+      "zk-client.js"
     ],
     "assets": [
       "public/**/*"
