@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ZKTeco Reportes — Asistencia</title>
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; background: #f4f6fb; color: #1f2937; }
+
+    .header { background: #1e3a8a; color: #fff; padding: 16px 28px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+    .header h1 { font-size: 19px; flex: 1; }
+    .header .dot { width: 11px; height: 11px; border-radius: 50%; background: #fbbf24; display: inline-block; margin-right: 6px; }
+    .header .hdrcfg { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .hdrcfg input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #0f172a; background: #fff; }
+
+    .container { max-width: 1100px; margin: 24px auto; padding: 0 18px; }
+
+    .card { background: #fff; border-radius: 10px; padding: 18px 22px; box-shadow: 0 1px 4px rgba(0,0,0,.1); margin-bottom: 18px; }
+
+    .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+    label { font-size: 12px; color: #6b7280; display: flex; flex-direction: column; gap: 4px; }
+    input, select, button { padding: 8px 11px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 14px; background: #fff; }
+    input:focus, select:focus { outline: 2px solid #93c5fd; border-color: #3b82f6; }
+    button { cursor: pointer; background: #2563eb; color: #fff; border: none; font-weight: 600; }
+    button:hover { background: #1d4ed8; }
+    button.sec { background: #16a34a; }
+    button.warn { background: #d97706; }
+
+    .stats { display: flex; gap: 30px; flex-wrap: wrap; }
+    .stat b { display: block; font-size: 26px; color: #2563eb; }
+    .stat span { font-size: 12px; color: #6b7280; }
+
+    .msg { padding: 12px 16px; border-radius: 7px; margin-bottom: 14px; display: none; font-size: 14px; }
+    .msg.ok { background: #dcfce7; color: #166534; display: block; }
+    .msg.err { background: #fee2e2; color: #991b1b; display: block; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+    th { background: #eef2ff; color: #1e3a8a; position: sticky; top: 0; z-index: 3; }
+    tr:hover { background: #f8fafc; }
+    .scroll { max-height: 60vh; overflow: auto; border: 1px solid #e5e7eb; border-radius: 7px; }
+
+    .nav-tabs { display: flex; gap: 4px; margin-bottom: 18px; }
+    .tab { padding: 9px 18px; border-radius: 7px 7px 0 0; background: #e5e7eb; cursor: pointer; font-size: 14px; }
+    .tab.active { background: #1e3a8a; color: #fff; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .badge.ok { background: #dcfce7; color: #166534; }
+    .badge.no { background: #fef3c7; color: #92400e; }
+
+    .missing { color: #b45309; font-weight: 600; }
+    .dateRow td { background: #eef2ff; font-weight: 700; color: #1e3a8a; font-size: 13px; position: sticky; top: var(--es-thead-h, 38px); z-index: 2; box-shadow: 0 1px 0 #c7d2fe; }
+
+    .urow { cursor: pointer; }
+    .urow:hover { background: #eef2ff; }
+    .urow.open { background: #e0e7ff; font-weight: 600; }
+    .mrow td { padding: 0 !important; background: #f8fafc; }
+    .mrow .marks { padding: 8px 12px 14px 12px; }
+    table.sub { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.sub th, table.sub td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+    table.sub th { background: #eef2ff; color: #1e3a8a; }
+
+    .userlist { max-height: 250px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 7px; margin-top: 10px; background: #fff; }
+    .userlist label.ui { display: flex; flex-direction: row; gap: 10px; align-items: center; padding: 7px 10px; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: 13px; white-space: nowrap; }
+    .userlist label.ui:hover { background: #f8fafc; }
+    .userlist label.ui:last-child { border-bottom: none; }
+    .userlist .empty { padding: 14px; text-align: center; color: #9ca3af; font-size: 13px; }
+    .hint { font-size: 12px; color: #6b7280; margin-top: 8px; }
+
+    .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 50; }
+    .modal-mask.open { display: flex; }
+    .modal { background: #fff; border-radius: 12px; padding: 22px; width: 600px; max-width: 96vw; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+    .modal h2 { font-size: 17px; margin-bottom: 6px; color: #1e3a8a; }
+    .modal .radio { flex-direction: row; align-items: center; gap: 6px; cursor: pointer; }
+    .modal .radio input { accent-color: #2563eb; }
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h1><span class="dot" id="statusDot"></span>ZKTeco Reportes</h1>
+    <div class="hdrcfg">
+        <input type="text" id="hIp" placeholder="IP biométrico (ej: 192.168.118.172)">
+        <input type="text" id="hPort" placeholder="Puerto (4370)" style="width:80px">
+        <button onclick="addQuickDevice()" title="Agregar este biométrico a la lista y sincronizarlo">➕ Agregar</button>
+        <button class="sec" onclick="syncDevice()">📥 Sincronizar todos</button>
+    </div>
+</div>
+
+<div class="container">
+    <div id="msg"></div>
+
+    <div class="nav-tabs">
+        <div class="tab active" data-tab="es" onclick="showTab('es')">Entradas / Salidas</div>
+        <div class="tab" data-tab="detalle" onclick="showTab('detalle')">Detalle de marcas</div>
+        <div class="tab" data-tab="dept" onclick="showTab('dept')">Departamentos</div>
+        <div class="tab" data-tab="devices" onclick="showTab('devices')">Dispositivos</div>
+    </div>
+
+    <!-- Panel Entradas/Salidas -->
+    <div class="panel active" id="panel-es">
+        <div class="card">
+            <div class="toolbar">
+                <label>Desde <input type="date" id="desde"></label>
+                <label>Hasta <input type="date" id="hasta"></label>
+                <label>Departamento <select id="fDepto" style="min-width:170px"><option value="">Todos</option></select></label>
+                <label style="flex-direction:row;align-items:center;gap:6px;cursor:pointer;padding-bottom:9px">
+                    <input type="checkbox" id="orden"> Ordenar por hora de entrada (temprano → tarde)
+                </label>
+                <input type="text" id="buscarEmp" placeholder="Buscar por CI o nombre" style="flex:1;min-width:180px">
+                <button onclick="loadReport()">Consultar</button>
+                <button class="warn" onclick="openExport()">⬇ Exportar reporte</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="colFecha">Fecha</th><th>CI</th><th>Nombre</th>
+                            <th class="colDept">Departamento</th>
+                            <th>Entrada</th><th>Salida</th><th class="colMarc">Marc.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tblES"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Detalle -->
+    <div class="panel" id="panel-detalle">
+        <div class="card">
+            <div class="toolbar">
+                <label>Desde <input type="date" id="dDesde"></label>
+                <label>Hasta <input type="date" id="dHasta"></label>
+                <input type="text" id="dBuscar" placeholder="Filtrar por CI o nombre" style="flex:1;min-width:180px">
+                <button onclick="loadDetail()">Consultar</button>
+            </div>
+            <p class="hint">Haz clic en un empleado para desplegar su detalle de marcaciones (tipo, fecha y hora).</p>
+        </div>
+        <div class="card">
+            <div class="scroll">
+                <table>
+                    <thead>
+                        <tr><th>#</th><th>CI</th><th>Nombre</th><th>Departamento</th><th>Marcaciones</th></tr>
+                    </thead>
+                    <tbody id="tblUsers"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Departamentos -->
+    <div class="panel" id="panel-dept">
+        <div class="card">
+            <p class="hint" style="margin:0 0 14px">
+                El biométrico entrega el <b>código</b> de departamento de cada empleado (campo "Dept." de cada usuario).
+                Estos códigos se leen solos al sincronizar; escribe aquí el nombre del área para que aparezca en los reportes.
+            </p>
+            <div class="toolbar" style="margin-bottom:14px">
+                <input type="text" id="nuevoCodigo" placeholder="Código nuevo (ej: 4)" style="width:170px">
+                <input type="text" id="nuevoNombre" placeholder="Nombre del área (ej: Contabilidad)" style="flex:1;min-width:200px">
+                <button onclick="addDept()">Agregar</button>
+                <button class="sec" onclick="loadDepartments()">Actualizar</button>
+            </div>
+            <div class="scroll">
+                <table>
+                    <thead><tr><th>Código</th><th>Área / Departamento</th><th>Empleados</th><th>Acciones</th></tr></thead>
+                    <tbody id="tblDept"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Dispositivos -->
+    <div class="panel" id="panel-devices">
+        <div class="card">
+            <div class="toolbar">
+                <input type="text" id="dName" placeholder="Nombre (ej: K40 Oficina)">
+                <input type="text" id="dIp" placeholder="IP (192.168.118.172)">
+                <input type="text" id="dPort" placeholder="Puerto (4370)" style="width:90px">
+                <input type="text" id="dPass" placeholder="Clave (0)" style="width:90px">
+                <button onclick="addDevice()">Agregar dispositivo</button>
+            </div>
+        </div>
+        <div class="card">
+            <table>
+                <thead><tr><th>ID</th><th>Nombre</th><th>IP</th><th>Puerto</th><th>Última sync</th><th>Estado</th><th>Acciones</th></tr></thead>
+                <tbody id="tblDevices"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Exportar -->
+<div class="modal-mask" id="modalExport">
+        <div class="modal">
+            <h2>Exportar reporte</h2>
+            <p class="hint" style="margin:0 0 16px">Período: <b><span id="expRango"></span></b></p>
+
+            <div style="margin-bottom:16px">
+                <div style="font-size:12px;color:#6b7280;margin-bottom:6px">Formato</div>
+                <div style="display:flex;gap:16px;flex-wrap:wrap">
+                    <label class="radio"><input type="radio" name="fmt" value="csv" checked> CSV (.csv)</label>
+                    <label class="radio"><input type="radio" name="fmt" value="excel"> Excel (.xlsx)</label>
+                    <label class="radio"><input type="radio" name="fmt" value="pdf"> PDF (.pdf)</label>
+                </div>
+            </div>
+
+            <div style="margin-bottom:12px">
+                <div style="font-size:12px;color:#6b7280;margin-bottom:6px">Empleados</div>
+                <label class="radio" style="margin-bottom:6px"><input type="radio" name="alg" value="todos" checked onchange="toggleExpSelect()"> Todos los empleados</label>
+                <label class="radio"><input type="radio" name="alg" value="sel" onchange="toggleExpSelect()"> Seleccionar empleado(s)...</label>
+            </div>
+
+            <div id="expSel" style="display:none">
+                <input type="text" id="expBuscar" placeholder="Filtrar por nombre o N°..." style="width:100%">
+                <div class="userlist" id="expUserList"></div>
+            </div>
+
+            <div class="toolbar" style="justify-content:flex-end;margin-top:18px">
+                <button onclick="closeExport()">Cancelar</button>
+                <button class="sec" onclick="doExport()">Descargar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function msg(text, type) {
+    const el = document.getElementById('msg');
+    el.className = 'msg ' + type;
+    el.textContent = text;
+}
+
+function showTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+}
+
+function today() { return new Date().toISOString().slice(0, 10); }
+function firstOfMonth() { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); }
+
+async function syncDevice() {
+    msg('Sincronizando con todos los biométricos en paralelo...', 'ok');
+    try {
+        const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const j = await r.json();
+        if (j.success && j.results) {
+            const detalle = j.results.map(x => x.success
+                ? `${x.device.ip}: ${x.records} marcas${x.incremental ? ' (incremental)' : ''}${x.conDepartamento ? `, ${x.conDepartamento} con depto.` : ''}`
+                : `${x.device.ip}: falló (${x.error})`).join(' — ');
+            msg('✅ ' + j.message + ' | ' + detalle, 'ok');
+            loadUsers(); loadDepartments(); loadReport(); loadDevices();
+        } else {
+            msg('❌ Error: ' + j.error, 'err');
+        }
+    } catch (e) {
+        msg('❌ No se pudo sincronizar: ' + e.message, 'err');
+    }
+    checkStatus();
+}
+
+async function syncOne(ip) {
+    msg('Sincronizando ' + ip + '...', 'ok');
+    try {
+        const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip }) });
+        const j = await r.json();
+        if (j.success) {
+            msg(`✅ ${j.device.ip}: ${j.users} usuarios, ${j.records} registros de marca`
+                + (j.conDepartamento ? `, ${j.conDepartamento} con departamento` : '')
+                + (j.departamentos ? `. Asigna el nombre de ${j.departamentos} código(s) en la pestaña Departamentos.` : '.'), 'ok');
+            loadUsers(); loadDepartments(); loadReport(); loadDevices();
+        } else {
+            msg('❌ ' + ip + ': ' + j.error, 'err');
+        }
+    } catch (e) {
+        msg('❌ No se pudo sincronizar ' + ip + ': ' + e.message, 'err');
+    }
+    checkStatus();
+}
+
+async function addQuickDevice() {
+    const ip = (document.getElementById('hIp').value || '').trim();
+    const port = document.getElementById('hPort').value || 4370;
+    if (!ip) { msg('Escribe una IP para agregarla', 'err'); return; }
+    const r = await fetch('/api/devices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Biométrico ' + ip, ip, port }) });
+    const j = await r.json();
+    if (j.id) { msg('✅ Dispositivo ' + ip + ' agregado', 'ok'); loadDevices(); syncOne(ip); }
+    else msg('❌ No se pudo agregar', 'err');
+}
+
+async function deleteDevice(id) {
+    if (!confirm('¿Eliminar este dispositivo y TODOS sus registros?')) return;
+    const r = await fetch('/api/devices/' + id, { method: 'DELETE' });
+    const j = await r.json();
+    msg(j.success ? '✅ Dispositivo eliminado' : '❌ Error al eliminar', j.success ? 'ok' : 'err');
+    loadUsers(); loadReport(); loadDevices(); checkStatus();
+}
+
+async function toggleDevice(id) {
+    const r = await fetch('/api/devices/' + id + '/toggle', { method: 'POST' });
+    const j = await r.json();
+    if (j.success) msg(j.active ? '✅ Dispositivo activado' : '⏸ Dispositivo desactivado', 'ok');
+    loadDevices(); checkStatus();
+}
+
+async function checkStatus() {
+    const dot = document.getElementById('statusDot');
+    try {
+        const devs = await (await fetch('/api/devices')).json();
+        const active = devs.filter(d => d.active);
+        if (active.length === 0) { dot.style.background = '#9ca3af'; return; }
+        const res = await Promise.all(active.map(async d => {
+            try {
+                const r = await fetch(`/api/device/status?ip=${encodeURIComponent(d.ip)}&port=${d.port}`);
+                const j = await r.json();
+                return !!j.connected;
+            } catch (e) { return false; }
+        }));
+        const ok = res.filter(Boolean).length;
+        dot.style.background = ok === res.length ? '#4ade80' : ok > 0 ? '#fbbf24' : '#f87171';
+    } catch (e) {
+        dot.style.background = '#f87171';
+    }
+}
+
+function fechaRange() {
+    return {
+        desde: document.getElementById('desde').value || '2000-01-01',
+        hasta: document.getElementById('hasta').value || '2099-12-31'
+    };
+}
+
+let ALL_USERS = [];
+
+async function loadUsers() {
+    const r = await fetch('/api/users');
+    ALL_USERS = await r.json();
+}
+
+function renderExpList() {
+    const q = (document.getElementById('expBuscar').value || '').trim().toLowerCase();
+    const list = ALL_USERS.filter(u =>
+        !q ||
+        (u.name || '').toLowerCase().includes(q) ||
+        String(u.user_id).toLowerCase().includes(q));
+    document.getElementById('expUserList').innerHTML = list.map(u =>
+        `<label class="ui"><input type="checkbox" class="ck" value="${esc(u.user_id)}"><span><b>${esc(u.name)}</b> <span style="color:#9ca3af;font-size:12px">(${esc(u.user_id)})</span></span></label>`
+    ).join('') || '<div class="empty">Sin resultados</div>';
+}
+
+function toggleExpSelect() {
+    const alg = document.querySelector('input[name=alg]:checked').value;
+    document.getElementById('expSel').style.display = (alg === 'sel') ? 'block' : 'none';
+}
+
+function openExport() {
+    const { desde, hasta } = fechaRange();
+    document.getElementById('expRango').textContent = `${desde} → ${hasta}`;
+    document.querySelector('input[name=alg][value=todos]').checked = true;
+    toggleExpSelect();
+    renderExpList();
+    document.getElementById('modalExport').classList.add('open');
+}
+
+function closeExport() {
+    document.getElementById('modalExport').classList.remove('open');
+}
+
+function doExport() {
+    const fmt = document.querySelector('input[name=fmt]:checked').value;
+    const alg = document.querySelector('input[name=alg]:checked').value;
+    const { desde, hasta } = fechaRange();
+    const q = document.getElementById('buscarEmp').value.trim();
+    const depto = document.getElementById('fDepto').value;
+    const ids = [...document.querySelectorAll('#expUserList .ck:checked')].map(c => c.value);
+
+    let url = `/api/export/${fmt}?desde=${desde}&hasta=${hasta}`;
+    if (depto) url += '&departamento=' + encodeURIComponent(depto);
+    if (alg === 'sel') {
+        if (ids.length === 0) { alert('Marca al menos un empleado o elige "Todos los empleados".'); return; }
+        url += '&users=' + encodeURIComponent(ids.join(','));
+    } else if (q) {
+        url += '&q=' + encodeURIComponent(q);
+    }
+    window.location.href = url;
+    closeExport();
+}
+
+async function loadReport() {
+    const { desde, hasta } = fechaRange();
+    const q = document.getElementById('buscarEmp').value.trim();
+    const orden = document.getElementById('orden').checked ? 'entrada' : '';
+    const depto = document.getElementById('fDepto').value;
+    const qs = new URLSearchParams({ desde, hasta });
+    if (q) qs.set('q', q);
+    if (orden) qs.set('orden', orden);
+    if (depto) qs.set('departamento', depto);
+    const r = await fetch('/api/summary?' + qs);
+    const j = await r.json();
+
+    const rows = j.records;
+    const detallado = !!q;
+    const fmtDate = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+    const colCount = 5 + (detallado ? 1 : 0);
+    document.querySelector('.colFecha').style.display = 'none';
+    document.querySelector('.colMarc').style.display = detallado ? '' : 'none';
+
+    const porFechas = {};
+    rows.forEach(r => { (porFechas[r.date] = porFechas[r.date] || []).push(r); });
+
+    const html = Object.keys(porFechas).sort().map(f => {
+        const fila = porFechas[f].map(rec => {
+            const entrada = (rec.entrada || '').slice(11, 19);
+            const salida  = (rec.salida || '').slice(11, 19);
+            // inferida: el día solo tiene marcas de salida; la primera se tomó
+            // como entrada y la última como salida.
+            const marca = rec.inferida
+                ? ' title="Día sin entrada marcada: la primera salida se tomó como entrada y la última como salida"'
+                : '';
+            const celdas = `
+                <td>${esc(rec.user_id)}</td>
+                <td${marca}>${esc(rec.name)}</td>
+                <td>${rec.departamento ? esc(rec.departamento) : '<span style="color:#9ca3af">—</span>'}</td>
+                <td>${entrada ? '<b>' + esc(entrada) + '</b>' : '<span class="missing">—</span>'}</td>
+                <td>${salida ? '<b>' + esc(salida) + '</b>' : '<span class="missing">—</span>'}`;
+            return `<tr>${celdas}${detallado ? `<td><span class="badge ${rec.marcaciones > 1 ? 'ok' : 'no'}">${rec.marcaciones}</span></td>` : ''}</tr>`;
+        }).join('');
+        return `<tr class="dateRow"><td colspan="${colCount}">${esc(fmtDate(f))}</td></tr>` + fila;
+    }).join('');
+
+    document.getElementById('tblES').innerHTML = html ||
+        `<tr><td colspan="${colCount}" style="text-align:center;color:#9ca3af;padding:30px">Sin marcas en el periodo</td></tr>`;
+
+    // Fija la fila del dia justo debajo del encabezado colgante.
+    const esThead = document.querySelector('#panel-es thead');
+    const esTop = esThead ? esThead.offsetHeight : 0;
+    if (esTop > 0) document.documentElement.style.setProperty('--es-thead-h', esTop + 'px');
+}
+
+async function loadDetail() {
+    const desde = document.getElementById('dDesde').value || '2000-01-01';
+    const hasta = document.getElementById('dHasta').value || '2099-12-31';
+    const q = document.getElementById('dBuscar').value.trim();
+    const qs = new URLSearchParams({ desde, hasta });
+    if (q) qs.set('q', q);
+    const r = await fetch('/api/attendance/users?' + qs);
+    const users = await r.json();
+
+    document.getElementById('tblUsers').innerHTML = users.map((u, i) => `
+        <tr class="urow" data-idx="${i}" data-uid="${esc(u.user_id)}" onclick="toggleMarks(this, ${i})">
+            <td>${i + 1}</td>
+            <td>${esc(u.user_id)}</td>
+            <td>${esc(u.name)}</td>
+            <td>${u.departamento ? esc(u.departamento) : '<span style="color:#9ca3af">—</span>'}</td>
+            <td>${u.marcaciones ? '<span class="badge ok">' + u.marcaciones + '</span>' : '<span class="badge no">0</span>'}</td>
+        </tr>
+        <tr class="mrow" id="mrow-${i}" style="display:none"><td colspan="5"><div class="marks">Cargando...</div></td></tr>`
+    ).join('') || '<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:30px">Sin empleados</td></tr>';
+}
+
+// ------------------------------------------------------------------
+//  Departamentos / areas
+// ------------------------------------------------------------------
+let ALL_DEPTS = [];
+
+async function loadDepartments() {
+    const r = await fetch('/api/departments');
+    ALL_DEPTS = await r.json();
+
+    // Filtro del reporte (conserva la selección actual).
+    const sel = document.getElementById('fDepto');
+    const actual = sel.value;
+    sel.innerHTML = '<option value="">Todos los departamentos</option>'
+        + ALL_DEPTS.map(d => `<option value="${esc(d.codigo)}">${esc(d.nombre)} (${esc(d.codigo)})</option>`).join('')
+        + '<option value="sin">Sin departamento</option>';
+    sel.value = actual;
+
+    document.getElementById('tblDept').innerHTML = ALL_DEPTS.map(d => `
+        <tr>
+            <td><b>${esc(d.codigo)}</b></td>
+            <td><input type="text" value="${esc(d.nombre)}" id="dn-${esc(d.codigo)}" style="width:100%"></td>
+            <td>${d.empleados ? '<span class="badge ok">' + d.empleados + '</span>' : '<span class="badge no">0</span>'}</td>
+            <td style="white-space:nowrap">
+                <button onclick="saveDept('${esc(d.codigo)}')">Guardar</button>
+                ${d.asignado ? `<button style="background:#dc2626" onclick="delDept('${esc(d.codigo)}')">Quitar nombre</button>` : ''}
+            </td>
+        </tr>`).join('')
+        || '<tr><td colspan="4" style="text-align:center;color:#9ca3af;padding:24px">Sin códigos leídos del biométrico todavía (sincroniza el dispositivo)</td></tr>';
+}
+
+async function saveDept(code) {
+    const input = document.getElementById('dn-' + code);
+    if (!input) return;
+    const r = await fetch('/api/departments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, name: input.value.trim() })
+    });
+    const j = await r.json();
+    msg(j.success ? `✅ Área "${j.nombre}" guardada` : '❌ ' + (j.error || 'error'), j.success ? 'ok' : 'err');
+    if (j.success) { await loadDepartments(); loadReport(); loadDetail(); }
+}
+
+async function addDept() {
+    const code = document.getElementById('nuevoCodigo').value.trim();
+    const name = document.getElementById('nuevoNombre').value.trim();
+    if (!code) { msg('Escribe el código del departamento', 'err'); return; }
+    const r = await fetch('/api/departments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, name })
+    });
+    const j = await r.json();
+    msg(j.success ? `✅ Área guardada` : '❌ ' + (j.error || 'error'), j.success ? 'ok' : 'err');
+    if (j.success) {
+        document.getElementById('nuevoCodigo').value = '';
+        document.getElementById('nuevoNombre').value = '';
+        await loadDepartments(); loadReport(); loadDetail();
+    }
+}
+
+async function delDept(code) {
+    if (!confirm('¿Quitar el nombre del área "' + code + '"?')) return;
+    await fetch('/api/departments/' + encodeURIComponent(code), { method: 'DELETE' });
+    msg('Nombre quitado (el código sigue vigente)', 'ok');
+    await loadDepartments(); loadReport(); loadDetail();
+}
+
+async function toggleMarks(tr, idx) {
+    const row = document.getElementById('mrow-' + idx);
+    const isOpen = row.style.display !== 'none';
+
+    document.querySelectorAll('.urow.open').forEach(r => {
+        if (r !== tr) {
+            r.classList.remove('open');
+            const nr = document.getElementById('mrow-' + r.dataset.idx);
+            if (nr) nr.style.display = 'none';
+        }
+    });
+    tr.classList.toggle('open', !isOpen);
+    row.style.display = isOpen ? 'none' : '';
+
+    if (isOpen || row.dataset.loaded) return;
+    row.dataset.loaded = '1';
+
+    const desde = document.getElementById('dDesde').value || '2000-01-01';
+    const hasta = document.getElementById('dHasta').value || '2099-12-31';
+    const uid = tr.dataset.uid;
+    const r = await fetch(`/api/attendance?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}&user_id=${encodeURIComponent(uid)}`);
+    const j = await r.json();
+
+    const fmtFull = ts => ts ? ts.slice(8, 10) + '/' + ts.slice(5, 7) + '/' + ts.slice(0, 4) + ' ' + ts.slice(11, 19) : '';
+    const tipo = p => p === 0 ? 'Entrada' : p === 1 ? 'Salida' : String(p);
+    const marks = j.records.slice().reverse();
+
+    row.querySelector('.marks').innerHTML = marks.length ? `
+        <table class="sub">
+            <thead><tr><th>Tipo</th><th>Fecha / Hora</th><th>Verificación</th></tr></thead>
+            <tbody>${marks.map(m => `
+                <tr><td>${tipo(m.punch)}</td><td>${esc(fmtFull(m.timestamp))}</td><td>${esc(m.status)}</td></tr>`).join('')}
+            </tbody>
+        </table>` : '<div class="empty" style="padding:14px">Sin marcas en el periodo</div>';
+}
+
+async function addDevice() {
+    const name = document.getElementById('dName').value;
+    const ip   = document.getElementById('dIp').value;
+    const port = document.getElementById('dPort').value || 4370;
+    const pass = parseInt(document.getElementById('dPass').value || '0') || 0;
+    if (!name || !ip) { msg('Nombre e IP requeridos', 'err'); return; }
+    const r = await fetch('/api/devices', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name, ip, port, password: pass }) });
+    const j = await r.json();
+    msg(j.id ? '✅ Dispositivo agregado' : '❌ Error', j.id ? 'ok' : 'err');
+    loadDevices();
+    if (j.id) syncOne(ip);
+}
+
+async function setDevicePassword(id, ip) {
+    const raw = prompt('Clave (comm key) del biométrico ' + ip + ':', '0');
+    if (raw === null) return;
+    const pw = parseInt(raw) || 0;
+    const r = await fetch('/api/devices/' + id + '/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) });
+    const j = await r.json();
+    msg(j.success ? '✅ Clave guardada para ' + ip : '❌ Error al guardar clave', j.success ? 'ok' : 'err');
+    loadDevices();
+}
+
+async function loadDevices() {
+    const r = await fetch('/api/devices');
+    const rows = await r.json();
+    document.getElementById('tblDevices').innerHTML = rows.map(d => {
+        const last = d.last_sync_at ? new Date(d.last_sync_at).toLocaleString() : '—';
+        const registro = d.last_records || 0;
+        return `<tr>
+        <td>${d.id}</td><td>${esc(d.name)}</td><td>${esc(d.ip)}</td><td>${d.port}</td>
+        <td style="white-space:nowrap">${last} <span style="color:#9ca3af;font-size:11px">(${registro} registros)</span></td>
+        <td>${d.active ? '<span class="badge ok">Activo</span>' : '<span class="badge no">Inactivo</span>'}</td>
+        <td style="white-space:nowrap">
+            <button onclick="syncOne('${esc(d.ip)}')">Sync</button>
+            <button onclick="setDevicePassword(${d.id}, '${esc(d.ip)}')">Clave</button>
+            <button onclick="toggleDevice(${d.id})">${d.active ? 'Pausar' : 'Activar'}</button>
+            <button style="background:#dc2626" onclick="deleteDevice(${d.id})">Eliminar</button>
+        </td>
+    </tr>`;
+    }).join('');
+}
+
+function esc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Inicializar
+document.getElementById('desde').value = firstOfMonth();
+document.getElementById('hasta').value = today();
+document.getElementById('dDesde').value = firstOfMonth();
+document.getElementById('dHasta').value = today();
+document.getElementById('buscarEmp').addEventListener('input', () => { loadReport(); });
+document.getElementById('orden').addEventListener('change', () => { loadReport(); });
+document.getElementById('fDepto').addEventListener('change', () => { loadReport(); });
+document.getElementById('dBuscar').addEventListener('input', () => { loadDetail(); });
+document.getElementById('expBuscar').addEventListener('input', () => { renderExpList(); });
+fetch('/api/device/config').then(r => r.json()).then(cfg => {
+    document.getElementById('hIp').value = cfg.ip || '';
+    document.getElementById('hPort').value = cfg.port || '';
+    checkStatus();
+}).catch(() => { checkStatus(); });
+loadUsers(); loadDepartments(); loadReport(); loadDetail(); loadDevices(); checkStatus();
+setInterval(checkStatus, 20000);
+</script>
+</body>
+</html>

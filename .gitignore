@@ -1,0 +1,40 @@
+# Dependencias
+node_modules/
+
+# Binarios empaquetados / artefactos de despliegue (muy pesados)
+dist/
+*.exe
+*.exe.bak
+*.exe.*
+*.zip
+
+# Bases de datos locales (no versionar datos de produccion)
+*.db
+*.db-shm
+*.db-wal
+*.db-*
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
+
+# Salida de comandos suelta (archivo "1" creado por error)
+/1
+
+# Config / secretos locales
+.env
+.env.*
+!.env.example
+
+# SO / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Temporal / artefactos sueltos
+*.tmp
+*.bak
+serverpid.txt
