@@ -119,7 +119,7 @@
                     <thead>
                         <tr>
                             <th class="colFecha">Fecha</th><th>CI</th><th>Nombre</th>
-                            <th class="colDept">Departamento</th>
+                            <th class="colDept">Área</th>
                             <th>Entrada</th><th>Salida</th><th class="colMarc">Marc.</th>
                         </tr>
                     </thead>
@@ -144,7 +144,7 @@
             <div class="scroll">
                 <table>
                     <thead>
-                        <tr><th>#</th><th>CI</th><th>Nombre</th><th>Departamento</th><th>Marcaciones</th></tr>
+                        <tr><th>#</th><th>CI</th><th>Nombre</th><th>Área</th><th>Marcaciones</th></tr>
                     </thead>
                     <tbody id="tblUsers"></tbody>
                 </table>
@@ -155,40 +155,38 @@
     <!-- Panel Departamentos -->
     <div class="panel" id="panel-dept">
         <div class="card">
-            <p class="hint" style="margin:0 0 14px">
-                Crea tus departamentos manualmente y asigna empleados. Los códigos del biométrico se ignoran; tú defines la estructura.
-            </p>
+            <p class="hint" style="margin:0 0 14px">Gestiona tus áreas y asigna empleados a cada una.</p>
             
-            <!-- Crear/Editar departamento -->
+            <!-- Crear/Editar área -->
             <div class="toolbar" style="margin-bottom:14px;flex-wrap:wrap;gap:10px">
-                <input type="text" id="newDeptCode" placeholder="Código (ej: ADM, TALL, VENT)" style="width:140px;text-transform:uppercase">
-                <input type="text" id="newDeptName" placeholder="Nombre (ej: Administración)" style="flex:1;min-width:200px">
-                <button onclick="createDept()">➕ Crear departamento</button>
+                <input type="text" id="newDeptName" placeholder="Nombre del área (ej: Mantenimiento)" style="flex:1;min-width:200px" oninput="autoGenDeptCode(this)" onkeydown="handleDeptNameKey(event)" autocomplete="off">
+                <input type="text" id="newDeptCode" placeholder="Código (ej: MAN1)" style="width:140px;text-transform:uppercase" autocomplete="off">
+                <button onclick="createDept()">➕ Crear área</button>
                 <button class="sec" onclick="loadDepartments()">🔄 Actualizar</button>
             </div>
 
-            <!-- Vista principal: lista de departamentos a la izquierda, asignación a la derecha -->
+            <!-- Vista principal: lista de áreas a la izquierda, asignación a la derecha -->
             <div style="display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start">
                 
-                <!-- Columna izquierda: Lista de departamentos -->
+                <!-- Columna izquierda: Lista de áreas -->
                 <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:400px">
-                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">📋 Departamentos</h4>
+                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">📋 Áreas</h4>
                     <div id="deptList" style="max-height:350px;overflow:auto"></div>
                     <div id="deptEmpty" style="display:none;color:#9ca3af;font-size:13px;padding:20px;text-align:center">
-                        No hay departamentos. Crea uno arriba ⬆
+                        No hay áreas. Crea una arriba ⬆
                     </div>
                 </div>
 
-                <!-- Columna derecha: Asignar usuarios al departamento seleccionado -->
+                <!-- Columna derecha: Asignar usuarios al área seleccionada -->
                 <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:400px">
                     <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">👥 Asignar empleados</h4>
                     <div id="deptAssignHeader" style="display:none;margin-bottom:10px;padding:8px 12px;background:#eef2ff;border-radius:6px">
                         <b id="assignDeptName"></b> <span style="color:#6b7280;font-weight:normal" id="assignDeptCode"></span>
                     </div>
                     <div id="assignEmpty" style="color:#9ca3af;font-size:13px;padding:20px;text-align:center">
-                        Selecciona un departamento a la izquierda para asignar empleados
+                        Selecciona un área a la izquierda para asignar empleados
                     </div>
-                    <input type="text" id="assignSearch" placeholder="Buscar empleado (nombre o CI)..." style="width:100%;margin-bottom:8px;display:none;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+                    <input type="text" id="assignSearch" placeholder="Buscar empleado (nombre o CI)..." style="width:100%;margin-bottom:8px;display:none;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" oninput="filterAssignUsers()">
                     <div id="assignUserList" class="userlist" style="display:none;max-height:300px;overflow:auto"></div>
                 </div>
             </div>
@@ -292,8 +290,8 @@ async function syncOne(ip) {
         const j = await r.json();
         if (j.success) {
             msg(`✅ ${j.device.ip}: ${j.users} usuarios, ${j.records} registros de marca`
-                + (j.conDepartamento ? `, ${j.conDepartamento} con departamento` : '')
-                + (j.departamentos ? `. Asigna el nombre de ${j.departamentos} código(s) en la pestaña Departamentos.` : '.'), 'ok');
+                + (j.conDepartamento ? `, ${j.conDepartamento} con área` : '')
+                + (j.departamentos ? `. Asigna el nombre de ${j.departamentos} código(s) en la pestaña Áreas.` : '.'), 'ok');
             loadUsers(); loadDepartments(); loadReport(); loadDevices();
         } else {
             msg('❌ ' + ip + ': ' + j.error, 'err');
@@ -496,12 +494,12 @@ async function loadDepartments() {
     // Filtro del reporte (conserva la selección actual).
     const sel = document.getElementById('fDepto');
     const actual = sel.value;
-    sel.innerHTML = '<option value="">Todos los departamentos</option>'
+    sel.innerHTML = '<option value="">Todas las áreas</option>'
         + ALL_DEPTS.map(d => `<option value="${esc(d.codigo)}">${esc(d.nombre)} (${esc(d.codigo)})</option>`).join('')
-        + '<option value="sin">Sin departamento</option>';
+        + '<option value="sin">Sin área</option>';
     sel.value = actual;
 
-    // Renderizar lista de departamentos en la nueva UI
+    // Renderizar lista de áreas en la nueva UI
     renderDeptList();
 }
 
@@ -619,8 +617,45 @@ async function toggleUserDept(userId, assigned) {
     }
 }
 
-function filterAssignUsers() {
+async function filterAssignUsers() {
     renderAssignUserList();
+}
+
+// Genera código automático: 3 primeras letras del nombre + contador
+function autoGenDeptCode(input) {
+    const name = input.value.trim();
+    const codeInput = document.getElementById('newDeptCode');
+    
+    if (!name) {
+        codeInput.value = '';
+        return;
+    }
+    
+    // Tomar 3 primeras letras, solo letras, mayúsculas
+    const base = name.replace(/[^a-zA-ZÁÉÍÓÚÜÑáéíóúüñ]/g, '').substring(0, 3).toUpperCase();
+    if (!base) {
+        codeInput.value = '';
+        return;
+    }
+    
+    // Buscar el máximo contador para ese prefijo
+    let maxNum = 0;
+    for (const d of ALL_DEPTS) {
+        const match = d.codigo.match(new RegExp('^' + base + '(\\d+)$'));
+        if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
+    }
+    
+    codeInput.value = base + (maxNum + 1);
+}
+
+// Enter en nombre = crear área
+function handleDeptNameKey(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        const code = document.getElementById('newDeptCode').value.trim();
+        const name = document.getElementById('newDeptName').value.trim();
+        if (code && name) createDept();
+    }
 }
 
 async function createDept() {
@@ -636,7 +671,7 @@ async function createDept() {
         });
         const j = await r.json();
         if (!j.success) throw new Error(j.error || 'Error');
-        msg(`✅ Departamento "${name}" creado`, 'ok');
+        msg(`✅ Área "${name}" creada`, 'ok');
         document.getElementById('newDeptCode').value = '';
         document.getElementById('newDeptName').value = '';
         await loadDepartments();
@@ -649,7 +684,7 @@ async function editDept(code) {
     const dept = ALL_DEPTS.find(d => d.codigo === code);
     if (!dept) return;
     
-    const newName = prompt('Nuevo nombre para ' + dept.nombre + ' (' + code + '):', dept.nombre);
+    const newName = prompt('Nuevo nombre para el área:', dept.nombre);
     if (!newName || newName === dept.nombre) return;
     
     try {
@@ -660,7 +695,7 @@ async function editDept(code) {
         });
         const j = await r.json();
         if (!j.success) throw new Error(j.error || 'Error');
-        msg(`✅ Departamento actualizado`, 'ok');
+        msg(`✅ Área actualizada`, 'ok');
         await loadDepartments();
     } catch (e) {
         msg('❌ ' + e.message, 'err');
@@ -668,10 +703,10 @@ async function editDept(code) {
 }
 
 async function delDept(code) {
-    if (!confirm('¿Eliminar el departamento? Los usuarios asignados quedarán sin departamento.')) return;
+    if (!confirm('¿Eliminar el área? Los usuarios asignados quedarán sin área.')) return;
     try {
         await fetch('/api/departments/' + encodeURIComponent(code), { method: 'DELETE' });
-        msg('Departamento eliminado', 'ok');
+        msg('Área eliminada', 'ok');
         selectedDeptCode = null;
         await loadDepartments();
     } catch (e) {
