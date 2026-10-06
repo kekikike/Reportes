@@ -156,20 +156,41 @@
     <div class="panel" id="panel-dept">
         <div class="card">
             <p class="hint" style="margin:0 0 14px">
-                El biométrico entrega el <b>código</b> de departamento de cada empleado (campo "Dept." de cada usuario).
-                Estos códigos se leen solos al sincronizar; escribe aquí el nombre del área para que aparezca en los reportes.
+                Crea tus departamentos manualmente y asigna empleados. Los códigos del biométrico se ignoran; tú defines la estructura.
             </p>
-            <div class="toolbar" style="margin-bottom:14px">
-                <input type="text" id="nuevoCodigo" placeholder="Código nuevo (ej: 4)" style="width:170px">
-                <input type="text" id="nuevoNombre" placeholder="Nombre del área (ej: Contabilidad)" style="flex:1;min-width:200px">
-                <button onclick="addDept()">Agregar</button>
-                <button class="sec" onclick="loadDepartments()">Actualizar</button>
+            
+            <!-- Crear/Editar departamento -->
+            <div class="toolbar" style="margin-bottom:14px;flex-wrap:wrap;gap:10px">
+                <input type="text" id="newDeptCode" placeholder="Código (ej: ADM, TALL, VENT)" style="width:140px;text-transform:uppercase">
+                <input type="text" id="newDeptName" placeholder="Nombre (ej: Administración)" style="flex:1;min-width:200px">
+                <button onclick="createDept()">➕ Crear departamento</button>
+                <button class="sec" onclick="loadDepartments()">🔄 Actualizar</button>
             </div>
-            <div class="scroll">
-                <table>
-                    <thead><tr><th>Código</th><th>Área / Departamento</th><th>Empleados</th><th>Acciones</th></tr></thead>
-                    <tbody id="tblDept"></tbody>
-                </table>
+
+            <!-- Vista principal: lista de departamentos a la izquierda, asignación a la derecha -->
+            <div style="display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start">
+                
+                <!-- Columna izquierda: Lista de departamentos -->
+                <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:400px">
+                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">📋 Departamentos</h4>
+                    <div id="deptList" style="max-height:350px;overflow:auto"></div>
+                    <div id="deptEmpty" style="display:none;color:#9ca3af;font-size:13px;padding:20px;text-align:center">
+                        No hay departamentos. Crea uno arriba ⬆
+                    </div>
+                </div>
+
+                <!-- Columna derecha: Asignar usuarios al departamento seleccionado -->
+                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:400px">
+                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">👥 Asignar empleados</h4>
+                    <div id="deptAssignHeader" style="display:none;margin-bottom:10px;padding:8px 12px;background:#eef2ff;border-radius:6px">
+                        <b id="assignDeptName"></b> <span style="color:#6b7280;font-weight:normal" id="assignDeptCode"></span>
+                    </div>
+                    <div id="assignEmpty" style="color:#9ca3af;font-size:13px;padding:20px;text-align:center">
+                        Selecciona un departamento a la izquierda para asignar empleados
+                    </div>
+                    <input type="text" id="assignSearch" placeholder="Buscar empleado (nombre o CI)..." style="width:100%;margin-bottom:8px;display:none;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px">
+                    <div id="assignUserList" class="userlist" style="display:none;max-height:300px;overflow:auto"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -451,50 +472,16 @@ async function loadDetail() {
     const r = await fetch('/api/attendance/users?' + qs);
     const users = await r.json();
 
-    // Genera <option> para el selector de departamento (incluye "Sin departamento")
-function deptOptions(selected) {
-    const opts = ALL_DEPTS.map(d =>
-        `<option value="${esc(d.codigo)}" ${selected === d.codigo ? 'selected' : ''}>${esc(d.nombre)} (${esc(d.codigo)})</option>`
-    ).join('');
-    return `<option value="" ${!selected ? 'selected' : ''}>Sin departamento</option>` + opts;
-}
-
-document.getElementById('tblUsers').innerHTML = users.map((u, i) => `
+    document.getElementById('tblUsers').innerHTML = users.map((u, i) => `
         <tr class="urow" data-idx="${i}" data-uid="${esc(u.user_id)}" onclick="toggleMarks(this, ${i})">
             <td>${i + 1}</td>
             <td>${esc(u.user_id)}</td>
             <td>${esc(u.name)}</td>
-            <td>
-                <select class="dept-sel" data-uid="${esc(u.user_id)}" onchange="setUserDept(this)" style="padding:4px 8px;font-size:12px;min-width:160px">
-                    ${deptOptions(u.departamento_codigo)}
-                </select>
-            </td>
+            <td>${u.departamento ? esc(u.departamento) : '<span style="color:#9ca3af">—</span>'}</td>
             <td>${u.marcaciones ? '<span class="badge ok">' + u.marcaciones + '</span>' : '<span class="badge no">0</span>'}</td>
         </tr>
         <tr class="mrow" id="mrow-${i}" style="display:none"><td colspan="5"><div class="marks">Cargando...</div></td></tr>`
     ).join('') || '<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:30px">Sin empleados</td></tr>';
-}
-
-// Guarda el departamento asignado a un usuario (llamado desde onchange del select)
-async function setUserDept(sel) {
-    const userId = sel.dataset.uid;
-    const code = sel.value; // "" = sin departamento
-    try {
-        const r = await fetch('/api/users/' + encodeURIComponent(userId) + '/department', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ department: code })
-        });
-        const j = await r.json();
-        if (!j.success) throw new Error(j.error || 'Error guardando');
-        // Actualiza texto visible en otras tablas (recarga silenciosa)
-        await loadDepartments();
-        msg(`✅ Departamento actualizado para ${userId}`, 'ok');
-    } catch (e) {
-        msg('❌ ' + e.message, 'err');
-        // Revertir select al valor anterior recargando la lista
-        await loadDetail();
-    }
 }
 
 // ------------------------------------------------------------------
@@ -514,55 +501,182 @@ async function loadDepartments() {
         + '<option value="sin">Sin departamento</option>';
     sel.value = actual;
 
-    document.getElementById('tblDept').innerHTML = ALL_DEPTS.map(d => `
-        <tr>
-            <td><b>${esc(d.codigo)}</b></td>
-            <td><input type="text" value="${esc(d.nombre)}" id="dn-${esc(d.codigo)}" style="width:100%"></td>
-            <td>${d.empleados ? '<span class="badge ok">' + d.empleados + '</span>' : '<span class="badge no">0</span>'}</td>
-            <td style="white-space:nowrap">
-                <button onclick="saveDept('${esc(d.codigo)}')">Guardar</button>
-                ${d.asignado ? `<button style="background:#dc2626" onclick="delDept('${esc(d.codigo)}')">Quitar nombre</button>` : ''}
-            </td>
-        </tr>`).join('')
-        || '<tr><td colspan="4" style="text-align:center;color:#9ca3af;padding:24px">Sin códigos leídos del biométrico todavía (sincroniza el dispositivo)</td></tr>';
+    // Renderizar lista de departamentos en la nueva UI
+    renderDeptList();
 }
 
-async function saveDept(code) {
-    const input = document.getElementById('dn-' + code);
-    if (!input) return;
-    const r = await fetch('/api/departments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, name: input.value.trim() })
-    });
-    const j = await r.json();
-    msg(j.success ? `✅ Área "${j.nombre}" guardada` : '❌ ' + (j.error || 'error'), j.success ? 'ok' : 'err');
-    if (j.success) { await loadDepartments(); loadReport(); loadDetail(); }
+function renderDeptList() {
+    const listEl = document.getElementById('deptList');
+    const emptyEl = document.getElementById('deptEmpty');
+    
+    if (ALL_DEPTS.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl.style.display = 'block';
+        return;
+    }
+    emptyEl.style.display = 'none';
+    
+    listEl.innerHTML = ALL_DEPTS.map(d => `
+        <div class="dept-item" data-code="${esc(d.codigo)}" onclick="selectDept('${esc(d.codigo)}')" 
+             style="padding:10px 12px;margin-bottom:6px;border-radius:6px;cursor:pointer;border:2px solid transparent;background:${d.asignado ? '#f0fdf4' : '#fff'};transition:all .15s"
+             onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${d.asignado ? '#f0fdf4' : '#fff'}'">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+                <span style="font-weight:600;color:#1e3a8a;font-size:14px">${esc(d.nombre)}</span>
+                <span style="font-size:11px;color:#6b7280;background:#e5e7eb;padding:2px 6px;border-radius:4px">${esc(d.codigo)}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:12px">
+                <span style="color:#6b7280">${d.empleados || 0} empleados</span>
+                <button onclick="event.stopPropagation(); editDept('${esc(d.codigo)}')" style="padding:2px 8px;font-size:11px;background:#2563eb;color:#fff;border:none;border-radius:4px">Editar</button>
+            </div>
+        </div>
+    `).join('');
 }
 
-async function addDept() {
-    const code = document.getElementById('nuevoCodigo').value.trim();
-    const name = document.getElementById('nuevoNombre').value.trim();
-    if (!code) { msg('Escribe el código del departamento', 'err'); return; }
-    const r = await fetch('/api/departments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, name })
+let selectedDeptCode = null;
+
+function selectDept(code) {
+    selectedDeptCode = code;
+    const dept = ALL_DEPTS.find(d => d.codigo === code);
+    if (!dept) return;
+    
+    // Actualizar UI - resaltar seleccionado
+    document.querySelectorAll('.dept-item').forEach(el => {
+        el.style.borderColor = el.dataset.code === code ? '#2563eb' : 'transparent';
+        el.style.background = el.dataset.code === code ? '#eff6ff' : (el.dataset.code === code ? '#eff6ff' : (el.style.background));
     });
-    const j = await r.json();
-    msg(j.success ? `✅ Área guardada` : '❌ ' + (j.error || 'error'), j.success ? 'ok' : 'err');
-    if (j.success) {
-        document.getElementById('nuevoCodigo').value = '';
-        document.getElementById('nuevoNombre').value = '';
-        await loadDepartments(); loadReport(); loadDetail();
+    
+    // Mostrar panel de asignación
+    document.getElementById('deptAssignHeader').style.display = 'block';
+    document.getElementById('assignEmpty').style.display = 'none';
+    document.getElementById('assignSearch').style.display = 'block';
+    document.getElementById('assignUserList').style.display = 'block';
+    document.getElementById('assignDeptName').textContent = dept.nombre;
+    document.getElementById('assignDeptCode').textContent = `(${dept.codigo})`;
+    
+    renderAssignUserList();
+}
+
+function renderAssignUserList() {
+    const search = (document.getElementById('assignSearch').value || '').toLowerCase();
+    const listEl = document.getElementById('assignUserList');
+    
+    if (!selectedDeptCode) {
+        listEl.innerHTML = '';
+        return;
+    }
+    
+    // Obtener usuarios que YA están en este departamento
+    const assigned = new Set();
+    // We need to fetch current assignments - for now use ALL_DEPTS data
+    // But we need actual user data. Let's fetch /api/users
+    
+    fetch('/api/users')
+        .then(r => r.json())
+        .then(users => {
+            const filtered = users.filter(u => {
+                const match = !search || 
+                    (u.name && u.name.toLowerCase().includes(search)) ||
+                    String(u.user_id).includes(search);
+                return match;
+            });
+            
+            listEl.innerHTML = filtered.map(u => {
+                const isAssigned = u.departamento_codigo === selectedDeptCode;
+                return `
+                    <label class="ui" style="padding:8px 10px;cursor:pointer">
+                        <input type="checkbox" class="ck" value="${esc(u.user_id)}" ${isAssigned ? 'checked' : ''} 
+                               onchange="toggleUserDept('${esc(u.user_id)}', this.checked)">
+                        <span style="display:flex;flex-direction:column;gap:2px">
+                            <b style="font-size:13px">${esc(u.name)}</b>
+                            <span style="font-size:11px;color:#6b7280">${esc(u.user_id)}${u.departamento ? ' • ' + esc(u.departamento) : ''}</span>
+                        </span>
+                    </label>
+                `;
+            }).join('');
+        });
+}
+
+async function toggleUserDept(userId, assigned) {
+    if (!selectedDeptCode) return;
+    
+    try {
+        const r = await fetch('/api/users/' + encodeURIComponent(userId) + '/department', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ department: assigned ? selectedDeptCode : '' })
+        });
+        const j = await r.json();
+        if (!j.success) throw new Error(j.error || 'Error');
+        
+        // Actualizar contador visual
+        await loadDepartments();
+        // Re-renderizar lista manteniendo búsqueda
+        renderAssignUserList();
+    } catch (e) {
+        msg('❌ ' + e.message, 'err');
+        // Revertir checkbox
+        renderAssignUserList();
+    }
+}
+
+function filterAssignUsers() {
+    renderAssignUserList();
+}
+
+async function createDept() {
+    const code = document.getElementById('newDeptCode').value.trim().toUpperCase();
+    const name = document.getElementById('newDeptName').value.trim();
+    if (!code || !name) { msg('Código y nombre son obligatorios', 'err'); return; }
+    
+    try {
+        const r = await fetch('/api/departments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, name })
+        });
+        const j = await r.json();
+        if (!j.success) throw new Error(j.error || 'Error');
+        msg(`✅ Departamento "${name}" creado`, 'ok');
+        document.getElementById('newDeptCode').value = '';
+        document.getElementById('newDeptName').value = '';
+        await loadDepartments();
+    } catch (e) {
+        msg('❌ ' + e.message, 'err');
+    }
+}
+
+async function editDept(code) {
+    const dept = ALL_DEPTS.find(d => d.codigo === code);
+    if (!dept) return;
+    
+    const newName = prompt('Nuevo nombre para ' + dept.nombre + ' (' + code + '):', dept.nombre);
+    if (!newName || newName === dept.nombre) return;
+    
+    try {
+        const r = await fetch('/api/departments', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code, name: newName.trim() })
+        });
+        const j = await r.json();
+        if (!j.success) throw new Error(j.error || 'Error');
+        msg(`✅ Departamento actualizado`, 'ok');
+        await loadDepartments();
+    } catch (e) {
+        msg('❌ ' + e.message, 'err');
     }
 }
 
 async function delDept(code) {
-    if (!confirm('¿Quitar el nombre del área "' + code + '"?')) return;
-    await fetch('/api/departments/' + encodeURIComponent(code), { method: 'DELETE' });
-    msg('Nombre quitado (el código sigue vigente)', 'ok');
-    await loadDepartments(); loadReport(); loadDetail();
+    if (!confirm('¿Eliminar el departamento? Los usuarios asignados quedarán sin departamento.')) return;
+    try {
+        await fetch('/api/departments/' + encodeURIComponent(code), { method: 'DELETE' });
+        msg('Departamento eliminado', 'ok');
+        selectedDeptCode = null;
+        await loadDepartments();
+    } catch (e) {
+        msg('❌ ' + e.message, 'err');
+    }
 }
 
 async function toggleMarks(tr, idx) {

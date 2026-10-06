@@ -593,16 +593,35 @@ app.get('/api/users', (req, res) => {
 // ----------------------------------------------------------------
 //  API: Actualizar departamento de un usuario (manual)
 // ----------------------------------------------------------------
-app.put('/api/users/:user_id/department', (req, res) => {
-    const userId = String(req.params.user_id || '').trim();
-    const { department } = req.body || {};
+// ----------------------------------------------------------------
+//  API: Actualizar departamento de varios usuarios (bulk)
+// ----------------------------------------------------------------
+app.post('/api/users/departments/bulk', (req, res) => {
+    const { user_ids, department } = req.body || {};
     const code = String(department || '').trim();
-    if (!userId) return res.status(400).json({ success: false, error: 'user_id requerido' });
-    // Permite quitar departamento enviando string vacío o null
     const newDept = code === '' ? null : code;
-    const info = db.run('UPDATE users SET department = ? WHERE user_id = ?', newDept, userId);
-    db.save();
-    res.json({ success: true, user_id: userId, department: newDept, changes: info.changes });
+    
+    if (!Array.isArray(user_ids) || user_ids.length === 0) {
+        return res.status(400).json({ success: false, error: 'user_ids requerido (array)' });
+    }
+    
+    const stmt = db.prepare('UPDATE users SET department = ? WHERE user_id = ?');
+    const tx = db.transaction((ids) => {
+        let changes = 0;
+        for (const uid of ids) {
+            const info = stmt.run(newDept, String(uid));
+            changes += info.changes;
+        }
+        return changes;
+    });
+    
+    try {
+        const changes = tx(user_ids);
+        db.save();
+        res.json({ success: true, department: newDept, changes });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
 });
 
 // ----------------------------------------------------------------
