@@ -943,7 +943,7 @@ const PORT = process.env.PORT || 3000;
 
 bootstrap()
     .then(() => {
-        const server = app.listen(PORT, () => {
+        const server = app.listen(PORT, '0.0.0.0', () => {
             console.log(`\n  ZKTeco Reportes corriendo en http://localhost:${PORT}`);
             console.log(`  API:     http://localhost:${PORT}/api/attendance`);
             console.log(`  Sync:    POST http://localhost:${PORT}/api/sync\n`);

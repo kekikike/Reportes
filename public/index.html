@@ -107,9 +107,6 @@
                 <label>Desde <input type="date" id="desde"></label>
                 <label>Hasta <input type="date" id="hasta"></label>
                 <label>Departamento <select id="fDepto" style="min-width:170px"><option value="">Todos</option></select></label>
-                <label style="flex-direction:row;align-items:center;gap:6px;cursor:pointer;padding-bottom:9px">
-                    <input type="checkbox" id="orden"> Ordenar por hora de entrada (temprano → tarde)
-                </label>
                 <input type="text" id="buscarEmp" placeholder="Buscar por CI o nombre" style="flex:1;min-width:180px">
                 <button onclick="loadReport()">Consultar</button>
                 <button class="warn" onclick="openExport()">⬇ Exportar reporte</button>
@@ -397,11 +394,9 @@ function doExport() {
 async function loadReport() {
     const { desde, hasta } = fechaRange();
     const q = document.getElementById('buscarEmp').value.trim();
-    const orden = document.getElementById('orden').checked ? 'entrada' : '';
     const depto = document.getElementById('fDepto').value;
     const qs = new URLSearchParams({ desde, hasta });
     if (q) qs.set('q', q);
-    if (orden) qs.set('orden', orden);
     if (depto) qs.set('departamento', depto);
     const r = await fetch('/api/summary?' + qs);
     const j = await r.json();
@@ -409,8 +404,8 @@ async function loadReport() {
     const rows = j.records;
     const detallado = !!q;
     const fmtDate = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
-    const colCount = 5 + (detallado ? 1 : 0);
-    document.querySelector('.colFecha').style.display = 'none';
+    const colCount = 6 + (detallado ? 1 : 0);
+    document.querySelector('.colFecha').style.display = '';
     document.querySelector('.colMarc').style.display = detallado ? '' : 'none';
 
     const porFechas = {};
