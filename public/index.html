@@ -404,7 +404,8 @@ async function loadReport() {
     const rows = j.records;
     const detallado = !!q;
     const fmtDate = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
-    const colCount = 6 + (detallado ? 1 : 0);
+    // Columnas visibles: Fecha, CI, Nombre, Departamento, Entrada, Salida, [Marc.]
+    const colCount = 7 + (detallado ? 1 : 0);
     document.querySelector('.colFecha').style.display = '';
     document.querySelector('.colMarc').style.display = detallado ? '' : 'none';
 
@@ -415,12 +416,12 @@ async function loadReport() {
         const fila = porFechas[f].map(rec => {
             const entrada = (rec.entrada || '').slice(11, 19);
             const salida  = (rec.salida || '').slice(11, 19);
-            // inferida: el día solo tiene marcas de salida; la primera se tomó
-            // como entrada y la última como salida.
             const marca = rec.inferida
                 ? ' title="Día sin entrada marcada: la primera salida se tomó como entrada y la última como salida"'
                 : '';
+            // Primera celda vacía para la columna Fecha (sticky). La fecha se ve en la dateRow.
             const celdas = `
+                <td></td>
                 <td>${esc(rec.user_id)}</td>
                 <td${marca}>${esc(rec.name)}</td>
                 <td>${rec.departamento ? esc(rec.departamento) : '<span style="color:#9ca3af">—</span>'}</td>
@@ -428,7 +429,8 @@ async function loadReport() {
                 <td>${salida ? '<b>' + esc(salida) + '</b>' : '<span class="missing">—</span>'}`;
             return `<tr>${celdas}${detallado ? `<td><span class="badge ${rec.marcaciones > 1 ? 'ok' : 'no'}">${rec.marcaciones}</span></td>` : ''}</tr>`;
         }).join('');
-        return `<tr class="dateRow"><td colspan="${colCount}">${esc(fmtDate(f))}</td></tr>` + fila;
+        // dateRow no abarca la columna Fecha (esa es sticky por separado)
+        return `<tr class="dateRow"><td colspan="${colCount - 1}">${esc(fmtDate(f))}</td></tr>` + fila;
     }).join('');
 
     document.getElementById('tblES').innerHTML = html ||
