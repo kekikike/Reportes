@@ -451,16 +451,50 @@ async function loadDetail() {
     const r = await fetch('/api/attendance/users?' + qs);
     const users = await r.json();
 
-    document.getElementById('tblUsers').innerHTML = users.map((u, i) => `
+    // Genera <option> para el selector de departamento (incluye "Sin departamento")
+function deptOptions(selected) {
+    const opts = ALL_DEPTS.map(d =>
+        `<option value="${esc(d.codigo)}" ${selected === d.codigo ? 'selected' : ''}>${esc(d.nombre)} (${esc(d.codigo)})</option>`
+    ).join('');
+    return `<option value="" ${!selected ? 'selected' : ''}>Sin departamento</option>` + opts;
+}
+
+document.getElementById('tblUsers').innerHTML = users.map((u, i) => `
         <tr class="urow" data-idx="${i}" data-uid="${esc(u.user_id)}" onclick="toggleMarks(this, ${i})">
             <td>${i + 1}</td>
             <td>${esc(u.user_id)}</td>
             <td>${esc(u.name)}</td>
-            <td>${u.departamento ? esc(u.departamento) : '<span style="color:#9ca3af">—</span>'}</td>
+            <td>
+                <select class="dept-sel" data-uid="${esc(u.user_id)}" onchange="setUserDept(this)" style="padding:4px 8px;font-size:12px;min-width:160px">
+                    ${deptOptions(u.departamento_codigo)}
+                </select>
+            </td>
             <td>${u.marcaciones ? '<span class="badge ok">' + u.marcaciones + '</span>' : '<span class="badge no">0</span>'}</td>
         </tr>
         <tr class="mrow" id="mrow-${i}" style="display:none"><td colspan="5"><div class="marks">Cargando...</div></td></tr>`
     ).join('') || '<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:30px">Sin empleados</td></tr>';
+}
+
+// Guarda el departamento asignado a un usuario (llamado desde onchange del select)
+async function setUserDept(sel) {
+    const userId = sel.dataset.uid;
+    const code = sel.value; // "" = sin departamento
+    try {
+        const r = await fetch('/api/users/' + encodeURIComponent(userId) + '/department', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ department: code })
+        });
+        const j = await r.json();
+        if (!j.success) throw new Error(j.error || 'Error guardando');
+        // Actualiza texto visible en otras tablas (recarga silenciosa)
+        await loadDepartments();
+        msg(`✅ Departamento actualizado para ${userId}`, 'ok');
+    } catch (e) {
+        msg('❌ ' + e.message, 'err');
+        // Revertir select al valor anterior recargando la lista
+        await loadDetail();
+    }
 }
 
 // ------------------------------------------------------------------

@@ -591,6 +591,21 @@ app.get('/api/users', (req, res) => {
 });
 
 // ----------------------------------------------------------------
+//  API: Actualizar departamento de un usuario (manual)
+// ----------------------------------------------------------------
+app.put('/api/users/:user_id/department', (req, res) => {
+    const userId = String(req.params.user_id || '').trim();
+    const { department } = req.body || {};
+    const code = String(department || '').trim();
+    if (!userId) return res.status(400).json({ success: false, error: 'user_id requerido' });
+    // Permite quitar departamento enviando string vacío o null
+    const newDept = code === '' ? null : code;
+    const info = db.run('UPDATE users SET department = ? WHERE user_id = ?', newDept, userId);
+    db.save();
+    res.json({ success: true, user_id: userId, department: newDept, changes: info.changes });
+});
+
+// ----------------------------------------------------------------
 //  API: Departamentos / areas
 //  GET    : codigos leidos del biometrico + nombre asignado + empleados
 //  POST   : asigna (o cambia) el nombre de un codigo
