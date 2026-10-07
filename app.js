@@ -660,9 +660,23 @@ app.post('/api/users/zkteco/add', async (req, res) => {
     
     // En el biométrico se guarda nombre + apellido separados por espacio
     const nombreCompletoBiometrico = `${nombreStr} ${apellidoStr}`;
+    const nombreLocal = `${nombreStr} ${apellidoStr}`;
+    const now = new Date().toISOString();
+    
+    // Guardar primero en BD local
+    try {
+        const device = db.get('SELECT * FROM devices WHERE active = 1 ORDER BY id LIMIT 1');
+        const deviceId = device ? device.id : 1;
+        db.prepare('INSERT OR REPLACE INTO users (device_id, uid, user_id, name, privilege, department, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+            deviceId, 0, userId, nombreLocal, 0, deptCode, now
+        );
+        db.save();
+    } catch (e) {}
     
     const cfg = deviceConfig();
-    const zk = new ZKDevice(cfg.ip, cfg.port, cfg.password, 15000);
+    const zk = new ZKDevice(cfg.ip, cfg.port, cfg.password, 10000);
+    let biometricoOk = false;
+    let biometricoError = null;
     
     try {
         await zk.connect();
@@ -672,18 +686,26 @@ app.post('/api/users/zkteco/add', async (req, res) => {
             department: deptCode
         });
         await zk.disconnect();
-        
+        biometricoOk = true;
+    } catch (err) {
+        try { await zk.disconnect(); } catch (e) {}
+        biometricoError = err.message;
+    }
+    
+    if (biometricoOk) {
         res.json({
             success: true,
             message: 'Usuario agregado correctamente al biométrico',
             user_id: userId,
             nombre: nombreCompletoBiometrico
         });
-    } catch (err) {
-        try { await zk.disconnect(); } catch (e) {}
-        res.status(500).json({
-            success: false,
-            error: err.message || 'Error al agregar usuario al biométrico'
+    } else {
+        res.json({
+            success: true,
+            warning: 'Usuario guardado en BD local pero no se pudo enviar al biométrico: ' + (biometricoError || 'Error'),
+            message: 'Usuario guardado localmente',
+            user_id: userId,
+            nombre: nombreCompletoBiometrico
         });
     }
 });

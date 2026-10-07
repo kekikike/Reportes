@@ -24,6 +24,7 @@ class ZKDevice {
             ATTLOG_RRQ:     13,
             USERTEMP_RRQ:   9,
             USERTEMP_WRRQ:  10, // escribir usuario
+            SET_USER:       8,
             GET_FREE_SIZES: 50,
             CONNECT:        1000,
             EXIT:           1001,
@@ -1003,7 +1004,7 @@ class ZKDevice {
         if (!userId || !userId.trim()) throw new Error('userId requerido');
         if (!name || !name.trim()) throw new Error('name requerido');
         
-        const uid = 0; // Se deja 0 para autoasignar o especificar - el K40 asigna
+        const uid = 0;
         const card = 0;
         const pass = '';
         const dept = ZKDevice._normDepartment(department) || '';
@@ -1011,31 +1012,78 @@ class ZKDevice {
         const userIdStr = String(userId).trim().substring(0, 24);
         const nameStr = String(name).trim().substring(0, 24);
         const deptStr = String(dept).trim().substring(0, 7);
+        const deptNum = parseInt(dept) || 0;
+        const userIdNum = parseInt(userId);
         
-        // Formato para USERTEMP_WRRQ (72 bytes): similar a USERTEMP_RRQ 72 bytes
-        // Basado en pyzk: uid H, privilege B, password 8s, name 24s, card I, pad 7, group_id 7s, pad 1, user_id 24s
-        const rec = Buffer.alloc(72);
-        rec.writeUInt16LE(uid, 0); // uid (0 = auto)
-        rec.writeUInt8(privilege & 0xFF, 2); // privilege
-        // password 8 bytes
-        Buffer.from(pass, 'latin1').copy(rec, 3, 0, 8);
-        Buffer.from(nameStr, 'latin1').copy(rec, 11, 0, 24);
-        rec.writeUInt32LE(card, 35); // card
-        // padding 7 bytes (36-42)
-        Buffer.from(deptStr, 'latin1').copy(rec, 40, 0, 7);
-        // padding 1 byte
-        Buffer.from(userIdStr, 'latin1').copy(rec, 48, 0, 24);
+        // Formato más compatible con K40 Pro: usar PACKET_SIZE 28 (registro corto)
+        // Enviar con CMD.DATA_WRRQ estilo pyzk - o usar comando directo
+        // Intentar con formato 28 (el que usa getUsers 28 bytes)
+        const rec28 = Buffer.alloc(28);
+        rec28.writeUInt16LE(uid, 0);
+        rec28.writeUInt8(privilege & 0xFF, 2);
+        Buffer.from(pass.substring(0, 5), 'latin1').copy(rec28, 3, 0, 5);
+        Buffer.from(nameStr.substring(0, 8), 'latin1').copy(rec28, 8, 0, 8);
+        rec28.writeUInt32LE(card, 16);
+        rec28.writeUInt8(deptNum & 0xFF, 21);
+        // timezone 0
+        rec28.writeUInt16LE(0, 22);
+        rec28.writeUInt32LE(Number.isNaN(userIdNum) ? uid : userIdNum, 24);
         
-        // Enviar CMD USERTEMP_WRRQ con 1 registro
-        const payload = Buffer.concat([
-            Buffer.from([1, 10, 0, 0, 0, 0, 0, 0, 0, 0]), // header USERTEMP_WRRQ
-            rec
-        ]);
-        const resp = await this._command(this.CMD.USERTEMP_WRRQ, payload);
-        if (resp.command !== this.CMD.ACK_OK) {
-            throw new Error(`Error al agregar usuario: cmd=${resp.command}`);
+        const rec72 = Buffer.alloc(72);
+        rec72.writeUInt16LE(uid, 0);
+        rec72.writeUInt8(privilege & 0xFF, 2);
+        Buffer.from(pass, 'latin1').copy(rec72, 3, 0, 8);
+        Buffer.from(nameStr, 'latin1').copy(rec72, 11, 0, 24);
+        rec72.writeUInt32LE(card, 35);
+        Buffer.from(deptStr, 'latin1').copy(rec72, 40, 0, 7);
+        rec72.writeUInt8(0, 47);
+        Buffer.from(userIdStr, 'latin1').copy(rec72, 48, 0, 24);
+        
+        // Probar formato 28 (más común)
+        const payload28 = Buffer.alloc(11 + 28);
+        payload28[0] = 1; // Data record count
+        payload28[1] = this.CMD.USERTEMP_WRRQ & 0xFF;
+        payload28[2] = (this.CMD.USERTEMP_WRRQ >> 8) & 0xFF;
+        payload28.fill(0, 3, 11);
+        rec28.copy(payload28, 11);
+        
+        try {
+            const resp = await this._command(this.CMD.USERTEMP_WRRQ, rec28);
+            if (resp.command === this.CMD.ACK_OK) return true;
+            // Si no es ACK_OK, intentar payload con header
+        } catch (e) {}
+        
+        // Intentar formato 72
+        try {
+            const resp72 = await this._command(this.CMD.USERTEMP_WRRQ, rec72);
+            if (resp72.command === this.CMD.ACK_OK) return true;
+        } catch (e) {}
+        
+        // Intentar CMD_SET_USER (8) con formato 72 - más directo
+        // Intentar CMD_SET_USER (8) con formato 72 - más directo
+        try {
+            const respSet = await this._command(8, rec72);
+            if (respSet.command === this.CMD.ACK_OK) return true;
+        } catch (e3) {
+            // Intentar formato 28
+            try {
+                const respSet2 = await this._command(8, rec28);
+                if (respSet2.command === this.CMD.ACK_OK) return true;
+            } catch (e4) {}
         }
-        return true;
+        
+        // Intentar USERTEMP_WRRQ (10)
+        try {
+            const resp = await this._command(10, rec72);
+            if (resp.command === this.CMD.ACK_OK) return true;
+        } catch (e5) {
+            try {
+                const resp = await this._command(10, rec28);
+                if (resp.command === this.CMD.ACK_OK) return true;
+            } catch (e6) {}
+        }
+        
+        throw new Error('No se pudo agregar el usuario al biométrico');
     }
 }
 

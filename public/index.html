@@ -823,7 +823,7 @@ async function addUserToBiometrico() {
         return;
     }
     
-    msg('Agregando usuario al biométrico K40 Pro...', 'ok');
+    msg('Agregando usuario...', 'ok');
     try {
         const r = await fetch('/api/users/zkteco/add', {
             method: 'POST',
@@ -832,7 +832,11 @@ async function addUserToBiometrico() {
         });
         const j = await r.json();
         if (j.success) {
-            msg(`✅ ${j.message} - ${j.nombre}`, 'ok');
+            if (j.warning) {
+                msg(`⚠ ${j.warning}`, 'err');
+            } else {
+                msg(`✅ ${j.message} - ${j.nombre}`, 'ok');
+            }
             document.getElementById('addUserId').value = '';
             document.getElementById('addUserNom').value = '';
             document.getElementById('addUserApe').value = '';
