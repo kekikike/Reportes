@@ -274,13 +274,18 @@ class ZKDevice {
     // ---------------------------------------------------------------
     //  Enviar comando y esperar respuesta
     // ---------------------------------------------------------------
-    async _command(cmd, payload = Buffer.alloc(0)) {
+    async _command(cmd, payload = Buffer.alloc(0), timeoutMs) {
         if (!this.isConnected && cmd !== this.CMD.CONNECT && cmd !== this.CMD.AUTH) {
             throw new Error('No hay conexion activa con el dispositivo.');
         }
         await this._sendFrame(cmd, payload);
-        return this._recvFrame();
+        return this._recvFrame(timeoutMs);
     }
+
+    // Timeout corto para comandos de escritura de usuarios: si un firmware
+    // no responde ACK a una variante de trama, no queremos esperar el
+    // timeout completo por cada una (varias variantes seguidas = minutos).
+    static WRITE_TIMEOUT = 500;
 
     // ---------------------------------------------------------------
     //  Decodificar tiempo ZK (4 bytes LE -> Date)
@@ -1045,47 +1050,28 @@ class ZKDevice {
         Buffer.from(userIdStr, 'latin1').copy(rec72, 48, 0, 24);
         
         // Probar formato 28 (más común)
-        const payload28 = Buffer.alloc(11 + 28);
-        payload28[0] = 1; // Data record count
-        payload28[1] = this.CMD.USERTEMP_WRRQ & 0xFF;
-        payload28[2] = (this.CMD.USERTEMP_WRRQ >> 8) & 0xFF;
-        payload28.fill(0, 3, 11);
-        rec28.copy(payload28, 11);
-        
         try {
-            const resp = await this._command(this.CMD.USERTEMP_WRRQ, rec28);
+            const resp = await this._command(this.CMD.USERTEMP_WRRQ, rec28, ZKDevice.WRITE_TIMEOUT);
             if (resp.command === this.CMD.ACK_OK) return true;
             // Si no es ACK_OK, intentar payload con header
         } catch (e) {}
         
         // Intentar formato 72
         try {
-            const resp72 = await this._command(this.CMD.USERTEMP_WRRQ, rec72);
+            const resp72 = await this._command(this.CMD.USERTEMP_WRRQ, rec72, ZKDevice.WRITE_TIMEOUT);
             if (resp72.command === this.CMD.ACK_OK) return true;
         } catch (e) {}
         
         // Intentar CMD_SET_USER (8) con formato 72 - más directo
-        // Intentar CMD_SET_USER (8) con formato 72 - más directo
         try {
-            const respSet = await this._command(8, rec72);
+            const respSet = await this._command(8, rec72, ZKDevice.WRITE_TIMEOUT);
             if (respSet.command === this.CMD.ACK_OK) return true;
         } catch (e3) {
             // Intentar formato 28
             try {
-                const respSet2 = await this._command(8, rec28);
+                const respSet2 = await this._command(8, rec28, ZKDevice.WRITE_TIMEOUT);
                 if (respSet2.command === this.CMD.ACK_OK) return true;
             } catch (e4) {}
-        }
-        
-        // Intentar USERTEMP_WRRQ (10)
-        try {
-            const resp = await this._command(10, rec72);
-            if (resp.command === this.CMD.ACK_OK) return true;
-        } catch (e5) {
-            try {
-                const resp = await this._command(10, rec28);
-                if (resp.command === this.CMD.ACK_OK) return true;
-            } catch (e6) {}
         }
         
         throw new Error('No se pudo agregar el usuario al biométrico');

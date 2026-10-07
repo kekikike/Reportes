@@ -710,7 +710,7 @@ app.post('/api/users/zkteco/add', async (req, res) => {
     } catch (e) {}
     
     const cfg = deviceConfig();
-    const zk = new ZKDevice(cfg.ip, cfg.port, cfg.password, 10000);
+    const zk = new ZKDevice(cfg.ip, cfg.port, cfg.password, 5000);
     let biometricoOk = false;
     let biometricoError = null;
     
