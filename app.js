@@ -638,6 +638,57 @@ app.post('/api/users/departments/bulk', (req, res) => {
 });
 
 // ----------------------------------------------------------------
+//  API: Agregar usuario al biométrico K40 Pro
+// ----------------------------------------------------------------
+app.post('/api/users/zkteco/add', async (req, res) => {
+    const { user_id, nombre, apellido_paterno, departamento } = req.body || {};
+    
+    if (!user_id || !String(user_id).trim()) {
+        return res.status(400).json({ success: false, error: 'ID de usuario requerido' });
+    }
+    if (!nombre || !String(nombre).trim()) {
+        return res.status(400).json({ success: false, error: 'Nombre requerido' });
+    }
+    if (!apellido_paterno || !String(apellido_paterno).trim()) {
+        return res.status(400).json({ success: false, error: 'Apellido paterno requerido' });
+    }
+    
+    const userId = String(user_id).trim().toUpperCase();
+    const nombreStr = String(nombre).trim().toUpperCase();
+    const apellidoStr = String(apellido_paterno).trim().toUpperCase();
+    const deptCode = departamento ? String(departamento).trim().toUpperCase() : null;
+    
+    // En el biométrico se guarda nombre + apellido separados por espacio
+    const nombreCompletoBiometrico = `${nombreStr} ${apellidoStr}`;
+    
+    const cfg = deviceConfig();
+    const zk = new ZKDevice(cfg.ip, cfg.port, cfg.password, 15000);
+    
+    try {
+        await zk.connect();
+        await zk.addUser({
+            userId: userId,
+            name: nombreCompletoBiometrico,
+            department: deptCode
+        });
+        await zk.disconnect();
+        
+        res.json({
+            success: true,
+            message: 'Usuario agregado correctamente al biométrico',
+            user_id: userId,
+            nombre: nombreCompletoBiometrico
+        });
+    } catch (err) {
+        try { await zk.disconnect(); } catch (e) {}
+        res.status(500).json({
+            success: false,
+            error: err.message || 'Error al agregar usuario al biométrico'
+        });
+    }
+});
+
+// ----------------------------------------------------------------
 //  API: Departamentos / areas
 //  GET    : codigos leidos del biometrico + nombre asignado + empleados
 //  POST   : asigna (o cambia) el nombre de un codigo

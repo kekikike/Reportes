@@ -23,6 +23,7 @@ class ZKDevice {
         this.CMD = {
             ATTLOG_RRQ:     13,
             USERTEMP_RRQ:   9,
+            USERTEMP_WRRQ:  10, // escribir usuario
             GET_FREE_SIZES: 50,
             CONNECT:        1000,
             EXIT:           1001,
@@ -989,6 +990,52 @@ class ZKDevice {
             5: 'Tarjeta+Clave', 6: 'FP+PWD', 7: 'All', 8: 'All',
         };
         return map[s] || `Verif ${s}`;
+    }
+
+    // ---------------------------------------------------------------
+    //  Agregar usuario al biométrico (K40)
+    //  userId: CI (máx 24 chars)
+    //  name: Nombres y Apellido Paterno unidos por espacio (máx 24 chars)
+    //  department: group_id (código de área)
+    // ---------------------------------------------------------------
+    async addUser({ userId, name, department = null, privilege = 0 }) {
+        if (!this.isConnected) throw new Error('No hay conexión activa con el dispositivo');
+        if (!userId || !userId.trim()) throw new Error('userId requerido');
+        if (!name || !name.trim()) throw new Error('name requerido');
+        
+        const uid = 0; // Se deja 0 para autoasignar o especificar - el K40 asigna
+        const card = 0;
+        const pass = '';
+        const dept = ZKDevice._normDepartment(department) || '';
+        
+        const userIdStr = String(userId).trim().substring(0, 24);
+        const nameStr = String(name).trim().substring(0, 24);
+        const deptStr = String(dept).trim().substring(0, 7);
+        
+        // Formato para USERTEMP_WRRQ (72 bytes): similar a USERTEMP_RRQ 72 bytes
+        // Basado en pyzk: uid H, privilege B, password 8s, name 24s, card I, pad 7, group_id 7s, pad 1, user_id 24s
+        const rec = Buffer.alloc(72);
+        rec.writeUInt16LE(uid, 0); // uid (0 = auto)
+        rec.writeUInt8(privilege & 0xFF, 2); // privilege
+        // password 8 bytes
+        Buffer.from(pass, 'latin1').copy(rec, 3, 0, 8);
+        Buffer.from(nameStr, 'latin1').copy(rec, 11, 0, 24);
+        rec.writeUInt32LE(card, 35); // card
+        // padding 7 bytes (36-42)
+        Buffer.from(deptStr, 'latin1').copy(rec, 40, 0, 7);
+        // padding 1 byte
+        Buffer.from(userIdStr, 'latin1').copy(rec, 48, 0, 24);
+        
+        // Enviar CMD USERTEMP_WRRQ con 1 registro
+        const payload = Buffer.concat([
+            Buffer.from([1, 10, 0, 0, 0, 0, 0, 0, 0, 0]), // header USERTEMP_WRRQ
+            rec
+        ]);
+        const resp = await this._command(this.CMD.USERTEMP_WRRQ, payload);
+        if (resp.command !== this.CMD.ACK_OK) {
+            throw new Error(`Error al agregar usuario: cmd=${resp.command}`);
+        }
+        return true;
     }
 }
 

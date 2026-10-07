@@ -97,6 +97,7 @@
         <div class="tab active" data-tab="es" onclick="showTab('es')">Entradas / Salidas</div>
         <div class="tab" data-tab="detalle" onclick="showTab('detalle')">Detalle de marcas</div>
         <div class="tab" data-tab="dept" onclick="showTab('dept')">Departamentos</div>
+        <div class="tab" data-tab="adduser" onclick="showTab('adduser')">Agregar Usuario</div>
         <div class="tab" data-tab="devices" onclick="showTab('devices')">Dispositivos</div>
     </div>
 
@@ -190,6 +191,33 @@
                     <div id="assignUserList" class="userlist" style="display:none;max-height:300px;overflow:auto"></div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Panel Agregar Usuario -->
+    <div class="panel" id="panel-adduser">
+        <div class="card">
+            <h3 style="margin:0 0 16px;font-size:16px;color:#1e3a8a">Agregar Usuario al Biométrico K40 Pro</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:600px">
+                <label>ID / CI
+                    <input type="text" id="addUserId" placeholder="Ej: 1234567" style="text-transform:uppercase">
+                </label>
+                <label>Apellido Paterno
+                    <input type="text" id="addUserApe" placeholder="Ej: PEREZ" style="text-transform:uppercase" oninput="this.value = this.value.toUpperCase()">
+                </label>
+                <label>Nombres
+                    <input type="text" id="addUserNom" placeholder="Ej: JUAN CARLOS" style="text-transform:uppercase" oninput="this.value = this.value.toUpperCase()">
+                </label>
+                <label>Departamento / Área (opcional)
+                    <select id="addUserDept" style="min-width:170px">
+                        <option value="">Sin área</option>
+                    </select>
+                </label>
+            </div>
+            <div style="margin-top:16px">
+                <button class="sec" onclick="addUserToBiometrico()">➕ Agregar al biométrico</button>
+            </div>
+            <p class="hint" style="margin-top:12px">El nombre completo (Nombre + Apellido Paterno) se enviará al K40 Pro en el campo Nombre, separados por espacio. Todo en MAYÚSCULAS.</p>
         </div>
     </div>
 
@@ -499,6 +527,17 @@ async function loadDepartments() {
         + '<option value="sin">Sin área</option>';
     sel.value = actual;
 
+    // Actualizar select para agregar usuario
+    const addDeptSel = document.getElementById('addUserDept');
+    if (addDeptSel) {
+        const actualAdd = addDeptSel.value;
+        addDeptSel.innerHTML = '<option value="">Sin área</option>'
+            + ALL_DEPTS.map(d => `<option value="${esc(d.codigo)}">${esc(d.nombre)} (${esc(d.codigo)})</option>`).join('');
+        if (actualAdd && ALL_DEPTS.some(d => d.codigo === actualAdd)) {
+            addDeptSel.value = actualAdd;
+        }
+    }
+
     // Renderizar lista de áreas en la nueva UI
     renderDeptList();
 }
@@ -771,6 +810,40 @@ async function setDevicePassword(id, ip) {
     const j = await r.json();
     msg(j.success ? '✅ Clave guardada para ' + ip : '❌ Error al guardar clave', j.success ? 'ok' : 'err');
     loadDevices();
+}
+
+async function addUserToBiometrico() {
+    const user_id = document.getElementById('addUserId').value.trim().toUpperCase();
+    const nombre = document.getElementById('addUserNom').value.trim().toUpperCase();
+    const apellido_paterno = document.getElementById('addUserApe').value.trim().toUpperCase();
+    const departamento = document.getElementById('addUserDept').value;
+    
+    if (!user_id || !nombre || !apellido_paterno) {
+        msg('ID, Nombres y Apellido Paterno son obligatorios', 'err');
+        return;
+    }
+    
+    msg('Agregando usuario al biométrico K40 Pro...', 'ok');
+    try {
+        const r = await fetch('/api/users/zkteco/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id, nombre, apellido_paterno, departamento: departamento || null })
+        });
+        const j = await r.json();
+        if (j.success) {
+            msg(`✅ ${j.message} - ${j.nombre}`, 'ok');
+            document.getElementById('addUserId').value = '';
+            document.getElementById('addUserNom').value = '';
+            document.getElementById('addUserApe').value = '';
+            document.getElementById('addUserDept').value = '';
+            loadUsers();
+        } else {
+            msg('❌ ' + j.error, 'err');
+        }
+    } catch (e) {
+        msg('❌ No se pudo agregar: ' + e.message, 'err');
+    }
 }
 
 async function loadDevices() {
