@@ -1022,10 +1022,9 @@ class ZKDevice {
         rec28.writeUInt16LE(uid, 0);
         rec28.writeUInt8(privilege & 0xFF, 2);
         Buffer.from(pass.substring(0, 5), 'latin1').copy(rec28, 3, 0, 5);
-        const cleanName28 = nameStr.replace(/[;:.,Ññ]/g, 'N').replace(/\s+/g, ' ').trim().substring(0, 8);
-        Buffer.from(cleanName28, 'latin1').copy(rec28, 8, 0, 8);
+        Buffer.from(nameStr.substring(0, 8), 'latin1').copy(rec28, 8, 0, 8);
         rec28.writeUInt32LE(card, 16);
-        rec28.writeUInt8(0, 21); // No enviar departamento al biométrico para evitar errores
+        rec28.writeUInt8(deptNum & 0xFF, 21);
         // timezone 0
         rec28.writeUInt16LE(0, 22);
         rec28.writeUInt32LE(Number.isNaN(userIdNum) ? uid : userIdNum, 24);
@@ -1034,14 +1033,11 @@ class ZKDevice {
         rec72.writeUInt16LE(uid, 0);
         rec72.writeUInt8(privilege & 0xFF, 2);
         Buffer.from(pass, 'latin1').copy(rec72, 3, 0, 8);
-        // Limpiar nombre de caracteres problemáticos
-        const cleanName = nameStr.replace(/[;:.,Ññ]/g, 'N').replace(/\s+/g, ' ').trim();
-        Buffer.from(cleanName, 'latin1').copy(rec72, 11, 0, 24);
+        Buffer.from(nameStr, 'latin1').copy(rec72, 11, 0, 24);
         rec72.writeUInt32LE(card, 35);
-        // No enviar departamento (vacío)
-        rec72.fill(0, 40, 47);
+        Buffer.from(deptStr, 'latin1').copy(rec72, 40, 0, 7);
         rec72.writeUInt8(0, 47);
-        Buffer.from(userIdStr.replace(/[Ññ]/g, 'N'), 'latin1').copy(rec72, 48, 0, 24);
+        Buffer.from(userIdStr, 'latin1').copy(rec72, 48, 0, 24);
         
         // Probar formato 28 (más común)
         const payload28 = Buffer.alloc(11 + 28);
@@ -1068,13 +1064,13 @@ class ZKDevice {
         try {
             const respSet = await this._command(8, rec72);
             if (respSet.command === this.CMD.ACK_OK) return true;
-        } catch (e3) {}
-        
-        // Intentar formato 28
-        try {
-            const respSet2 = await this._command(8, rec28);
-            if (respSet2.command === this.CMD.ACK_OK) return true;
-        } catch (e4) {}
+        } catch (e3) {
+            // Intentar formato 28
+            try {
+                const respSet2 = await this._command(8, rec28);
+                if (respSet2.command === this.CMD.ACK_OK) return true;
+            } catch (e4) {}
+        }
         
         // Intentar USERTEMP_WRRQ (10)
         try {

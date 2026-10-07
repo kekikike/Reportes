@@ -653,18 +653,14 @@ app.post('/api/users/zkteco/add', async (req, res) => {
         return res.status(400).json({ success: false, error: 'Apellido paterno requerido' });
     }
     
-    let userId = String(user_id).trim().toUpperCase();
-    let nombreStr = String(nombre).trim().toUpperCase().replace(/[;:.,]/g, ' ').replace(/\s+/g, ' ');
-    let apellidoStr = String(apellido_paterno).trim().toUpperCase().replace(/[;:.,]/g, ' ').replace(/\s+/g, ' ');
-    // Reemplazar Ñ y ñ por N
-    nombreStr = nombreStr.replace(/[Ññ]/g, 'N');
-    apellidoStr = apellidoStr.replace(/[Ññ]/g, 'N');
-    userId = userId.replace(/[Ññ]/g, 'N');
-    let deptCode = departamento ? String(departamento).trim() : null;
+    const userId = String(user_id).trim().toUpperCase();
+    const nombreStr = String(nombre).trim().toUpperCase();
+    const apellidoStr = String(apellido_paterno).trim().toUpperCase();
+    const deptCode = departamento ? String(departamento).trim().toUpperCase() : null;
     
     // En el biométrico se guarda nombre + apellido separados por espacio
-    const nombreCompletoBiometrico = `${nombreStr} ${apellidoStr}`.replace(/\s+/g, ' ').trim();
-    const nombreLocal = nombreCompletoBiometrico;
+    const nombreCompletoBiometrico = `${nombreStr} ${apellidoStr}`;
+    const nombreLocal = `${nombreStr} ${apellidoStr}`;
     const now = new Date().toISOString();
     
     // Guardar primero en BD local
