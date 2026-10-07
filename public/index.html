@@ -208,8 +208,8 @@
                 <label>Nombres
                     <input type="text" id="addUserNom" placeholder="Ej: JUAN CARLOS" style="text-transform:uppercase" oninput="this.value = this.value.toUpperCase()">
                 </label>
-                <label>Departamento / Área (opcional)
-                    <select id="addUserDept" style="min-width:170px">
+                <label style="display:none;">Departamento / Área (opcional)
+                    <select id="addUserDept" style="min-width:170px;">
                         <option value="">Sin área</option>
                     </select>
                 </label>
@@ -813,10 +813,13 @@ async function setDevicePassword(id, ip) {
 }
 
 async function addUserToBiometrico() {
-    const user_id = document.getElementById('addUserId').value.trim().toUpperCase();
-    const nombre = document.getElementById('addUserNom').value.trim().toUpperCase();
-    const apellido_paterno = document.getElementById('addUserApe').value.trim().toUpperCase();
-    const departamento = document.getElementById('addUserDept').value;
+    let user_id = document.getElementById('addUserId').value.trim().toUpperCase();
+    let nombre = document.getElementById('addUserNom').value.trim().toUpperCase();
+    let apellido_paterno = document.getElementById('addUserApe').value.trim().toUpperCase();
+    user_id = user_id.replace(/[Ññ]/g, 'N');
+    nombre = nombre.replace(/[Ññ]/g, 'N');
+    apellido_paterno = apellido_paterno.replace(/[Ññ]/g, 'N');
+    const departamento = ''; // No enviar departamento
     
     if (!user_id || !nombre || !apellido_paterno) {
         msg('ID, Nombres y Apellido Paterno son obligatorios', 'err');
@@ -828,7 +831,7 @@ async function addUserToBiometrico() {
         const r = await fetch('/api/users/zkteco/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, nombre, apellido_paterno, departamento: departamento || null })
+            body: JSON.stringify({ user_id, nombre, apellido_paterno, departamento: null })
         });
         const j = await r.json();
         if (j.success) {
@@ -840,7 +843,6 @@ async function addUserToBiometrico() {
             document.getElementById('addUserId').value = '';
             document.getElementById('addUserNom').value = '';
             document.getElementById('addUserApe').value = '';
-            document.getElementById('addUserDept').value = '';
             loadUsers();
         } else {
             msg('❌ ' + j.error, 'err');
