@@ -312,6 +312,11 @@ class ZKDevice {
     static _cleanStr(buf) {
         if (!buf || buf.length === 0) return '';
         let str = buf.toString('utf8');
+        // El equipo guarda acentos/Ñ en latin1; si utf8 produce el carácter
+        // de reemplazo (U+FFFD) se redecodifica como latin1 para conservarlos.
+        if (str.includes('\uFFFD')) {
+            str = buf.toString('latin1');
+        }
         const nul = str.indexOf('\x00');
         if (nul !== -1) str = str.substring(0, nul);
         return str.trim();

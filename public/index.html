@@ -396,7 +396,7 @@ function renderExpList() {
         (u.name || '').toLowerCase().includes(q) ||
         String(u.user_id).toLowerCase().includes(q));
     document.getElementById('expUserList').innerHTML = list.map(u =>
-        `<label class="ui"><input type="checkbox" class="ck" value="${esc(u.user_id)}"><span><b>${esc(u.name)}</b> <span style="color:#9ca3af;font-size:12px">(${esc(u.user_id)})</span></span></label>`
+        `<label class="ui"><input type="checkbox" class="ck" value="${esc(u.user_id)}"><span><b>${esc(vist(u.name))}</b> <span style="color:#9ca3af;font-size:12px">(${esc(u.user_id)})</span></span></label>`
     ).join('') || '<div class="empty">Sin resultados</div>';
 }
 
@@ -470,7 +470,7 @@ async function loadReport() {
             const celdas = `
                 <td></td>
                 <td>${esc(rec.user_id)}</td>
-                <td${marca}>${esc(rec.name)}</td>
+                <td${marca}>${esc(vist(rec.name))}</td>
                 <td>${rec.departamento ? esc(rec.departamento) : '<span style="color:#9ca3af">—</span>'}</td>
                 <td>${entrada ? '<b>' + esc(entrada) + '</b>' : '<span class="missing">—</span>'}</td>
                 <td>${salida ? '<b>' + esc(salida) + '</b>' : '<span class="missing">—</span>'}`;
@@ -502,7 +502,7 @@ async function loadDetail() {
         <tr class="urow" data-idx="${i}" data-uid="${esc(u.user_id)}" onclick="toggleMarks(this, ${i})">
             <td>${i + 1}</td>
             <td>${esc(u.user_id)}</td>
-            <td>${esc(u.name)}</td>
+            <td>${esc(vist(u.name))}</td>
             <td>${u.departamento ? esc(u.departamento) : '<span style="color:#9ca3af">—</span>'}</td>
             <td>${u.marcaciones ? '<span class="badge ok">' + u.marcaciones + '</span>' : '<span class="badge no">0</span>'}</td>
         </tr>
@@ -624,7 +624,7 @@ function renderAssignUserList() {
                         <input type="checkbox" class="ck" value="${esc(u.user_id)}" ${isAssigned ? 'checked' : ''} 
                                onchange="toggleUserDept('${esc(u.user_id)}', this.checked)">
                         <span style="display:flex;flex-direction:column;gap:2px">
-                            <b style="font-size:13px">${esc(u.name)}</b>
+                            <b style="font-size:13px">${esc(vist(u.name))}</b>
                             <span style="font-size:11px;color:#6b7280">${esc(u.user_id)}${u.departamento ? ' • ' + esc(u.departamento) : ''}</span>
                         </span>
                     </label>
@@ -872,6 +872,11 @@ async function loadDevices() {
 
 function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Normaliza un nombre para la vista: ';' -> espacio y Ñ/ñ -> N.
+function vist(s) {
+    return String(s ?? '').replace(/;/g, ' ').replace(/[Ññ]/g, 'N').replace(/\uFFFD/g, 'N').replace(/\s+/g, ' ').trim();
 }
 
 // Inicializar

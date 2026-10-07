@@ -43,6 +43,41 @@ const db = new Proxy({}, {
 async function bootstrap() {
     const info = initDatabase(path.join(APP_DIR, 'reportes.db'));
     _db = info.db;
+
+    // Limpieza única de nombres heredados del biométrico:
+    //   ';' -> espacio, 'Ñ'/'ñ' -> 'N', colapsa espacios.
+    // Corrige registros ya guardados (ej: "IÑIGUEZ" o "JUAN;PEREZ").
+    try {
+        const clean = (s) => String(s || '')
+            .replace(/;/g, ' ')
+            .replace(/[Ññ]/g, 'N')
+            .replace(/\uFFFD/g, 'N')
+            .replace(/\s+/g, ' ')
+            .trim();
+        for (const tabla of ['users', 'attendance']) {
+            const filas = db.all(`SELECT rowid AS rid, name FROM ${tabla}`);
+            for (const f of filas) {
+                const limpio = clean(f.name);
+                if (limpio !== f.name) {
+                    db.run(`UPDATE ${tabla} SET name = ? WHERE rowid = ?`, [limpio, f.rid]);
+                }
+            }
+        }
+        db.save();
+    } catch (e) {
+        console.warn('Aviso limpieza de nombres:', e.message);
+    }
+}
+
+// Normaliza nombres para vista/exportes: ';' -> espacio, Ñ/ñ -> N,
+// colapsa espacios y limpia caracteres de relleno del biométrico.
+function _cleanNameView(s) {
+    return String(s || '')
+        .replace(/;/g, ' ')
+        .replace(/[Ññ]/g, 'N')
+        .replace(/\uFFFD/g, 'N') // carácter de reemplazo (Ñ mal decodificada)
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 function deviceConfig() {
@@ -295,7 +330,7 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, departamento }) {
         return {
             date: (j.entrada || '').slice(0, 10),
             user_id: j.user_id,
-            name: j.name,
+            name: _cleanNameView(j.name),
             departamento: d ? d.nombre : '',
             departamento_codigo: d ? d.codigo : '',
             entrada: j.entrada,
@@ -357,7 +392,7 @@ async function syncDevice(dev) {
         if (deviceId) {
             const insU = db.prepare('INSERT OR REPLACE INTO users (device_id, uid, user_id, name, privilege, department, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
             for (const u of users) {
-                insU.run(deviceId, u.uid, u.userId, u.name, u.privilege, u.department, now);
+                insU.run(deviceId, u.uid, u.userId, _cleanNameView(u.name), u.privilege, u.department, now);
                 // El equipo solo entrega el codigo del departamento: se registra
                 // para poder asignarle un nombre desde la interfaz.
                 _registrarDepartamento(u.department);
@@ -422,7 +457,7 @@ async function syncDevice(dev) {
                 const ts = r.timestamp instanceof Date
                     ? r.timestamp.toISOString()
                     : String(r.timestamp);
-                insA.run(deviceId, r.userId, r.name || userMap[r.userId] || '', ts, r.status, r.punch, now);
+                insA.run(deviceId, r.userId, _cleanNameView(r.name || userMap[r.userId] || ''), ts, r.status, r.punch, now);
             }
 
             // Registrar el ultimo indice sincronizado (snapshot del
@@ -576,7 +611,7 @@ app.get('/api/users', (req, res) => {
     const nombres = deptNameMap();
     let out = rows.map(r => ({
         user_id: r.user_id,
-        name: r.name,
+        name: _cleanNameView(r.name),
         synced_at: r.synced_at,
         departamento_codigo: r.department || '',
         departamento: r.department ? (nombres[r.department] || r.department) : '',
@@ -667,8 +702,9 @@ app.post('/api/users/zkteco/add', async (req, res) => {
     try {
         const device = db.get('SELECT * FROM devices WHERE active = 1 ORDER BY id LIMIT 1');
         const deviceId = device ? device.id : 1;
+        const nombreBD = nombreLocal.replace(/;/g, ' ').replace(/\s+/g, ' ').replace(/[Ññ]/g, 'N').trim();
         db.prepare('INSERT OR REPLACE INTO users (device_id, uid, user_id, name, privilege, department, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-            deviceId, 0, userId, nombreLocal, 0, deptCode, now
+            deviceId, 0, userId, nombreBD, 0, null, now
         );
         db.save();
     } catch (e) {}
@@ -682,8 +718,8 @@ app.post('/api/users/zkteco/add', async (req, res) => {
         await zk.connect();
         await zk.addUser({
             userId: userId,
-            name: nombreCompletoBiometrico,
-            department: deptCode
+            name: nombreCompletoBiometrico.replace(/;/g,' ').replace(/[Ññ]/g,'N').trim(),
+            department: null
         });
         await zk.disconnect();
         biometricoOk = true;
@@ -785,7 +821,7 @@ app.get('/api/attendance', (req, res) => {
     const total = db.prepare(`SELECT COUNT(*) as n FROM attendance WHERE ${where}`).get(...params).n;
     const rows = db.prepare(
         `SELECT * FROM attendance WHERE ${where} ORDER BY timestamp DESC LIMIT ? OFFSET ?`
-    ).all(...params, limit, offset);
+    ).all(...params, limit, offset).map(r => ({ ...r, name: _cleanNameView(r.name) }));
 
     res.json({ total, page, limit, records: rows });
 });
@@ -823,7 +859,7 @@ app.get('/api/attendance/users', (req, res) => {
 
     res.json(users.map(u => ({
         user_id: u.user_id,
-        name: u.name,
+        name: _cleanNameView(u.name),
         marcaciones: cmap[u.user_id] || 0,
         departamento_codigo: u.department || '',
         departamento: u.department ? (nombres[u.department] || u.department) : '',
