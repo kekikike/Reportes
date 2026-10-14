@@ -752,6 +752,111 @@ app.get('/api/users', (req, res) => {
 });
 
 // ----------------------------------------------------------------
+//  API: Agregar / subir un usuario al biométrico (K40 Pro)
+//
+//  Solo se sube lo esencial: CI (código), primer apellido y primer
+//  nombre. En el equipo el nombre se guarda como "APELLIDO NOMBRE".
+//  El área NO se envía: se asigna después desde la pestaña Áreas
+//  (relación local user_areas).
+//
+//  Si el equipo no acepta el alta, se realiza una sincronización y se
+//  informa (pedido: "si no se puede subir, que sincronice").
+// ----------------------------------------------------------------
+app.post('/api/users/zkteco/add', async (req, res) => {
+    const { user_id, apellido, nombre } = req.body || {};
+    const userId = String(user_id || '').trim().toUpperCase();
+    const ape = String(apellido || '').trim().toUpperCase();
+    const nom = String(nombre || '').trim().toUpperCase();
+
+    if (!userId) return res.status(400).json({ success: false, error: 'El CI (código) es obligatorio' });
+    if (!ape)    return res.status(400).json({ success: false, error: 'El primer apellido es obligatorio' });
+    if (!nom)    return res.status(400).json({ success: false, error: 'El primer nombre es obligatorio' });
+
+    // En el equipo el nombre se guarda como "APELLIDO NOMBRE".
+    const nombreEquipo = _cleanNameView(`${ape} ${nom}`);
+    const now = new Date().toISOString();
+
+    // 1) Guardar en la BD local: así el usuario aparece de una vez y se le
+    //    puede asignar el área desde la pestaña Áreas.
+    const dev = db.get('SELECT * FROM devices ORDER BY id LIMIT 1') || {};
+    const deviceId = dev.id || 1;
+    try {
+        db.run(
+            'INSERT OR REPLACE INTO users (device_id, uid, user_id, name, privilege, department, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            deviceId, 0, userId, nombreEquipo, 0, null, now
+        );
+        db.save();
+    } catch (e) {}
+
+    // 2) Intentar subirlo al equipo.
+    const cfg = deviceConfig();
+    const zk = new ZKDevice(
+        dev.ip || cfg.ip,
+        dev.port || cfg.port,
+        (dev.password !== undefined && dev.password !== null) ? dev.password : cfg.password,
+        5000
+    );
+    let subido = false;
+    let errorSubida = null;
+    try {
+        await zk.connect();
+        await zk.addUser({ userId, name: nombreEquipo });
+        subido = true;
+        // Verificación best-effort: confirmar que el equipo ya lo lista.
+        try {
+            const lista = await zk.getUsers();
+            if (!lista.some(u => String(u.userId) === userId)) {
+                subido = false;
+                errorSubida = 'El equipo respondió pero no registró al usuario';
+            }
+        } catch (e) { /* si no se puede verificar, se confía en el ACK */ }
+        try { await zk.disconnect(); } catch (e) {}
+    } catch (err) {
+        try { await zk.disconnect(); } catch (e) {}
+        errorSubida = err.message;
+    }
+
+    // 3) Subida correcta.
+    if (subido) {
+        return res.json({
+            success: true,
+            uploaded: true,
+            user_id: userId,
+            nombre: nombreEquipo,
+            message: `Usuario "${nombreEquipo}" subido al biométrico`,
+        });
+    }
+
+    // 4) No se pudo subir: se sincroniza el equipo (fallback pedido).
+    try {
+        const result = await syncDevice(dev.id
+            ? dev
+            : { id: deviceId, name: 'Biométrico', ip: cfg.ip, port: cfg.port, password: cfg.password, last_records: 0 });
+        db.save();
+        return res.json({
+            success: true,
+            uploaded: false,
+            synced: true,
+            user_id: userId,
+            nombre: nombreEquipo,
+            detail: errorSubida,
+            message: `No se pudo subir al biométrico (${errorSubida || 'sin respuesta'}). Se sincronizó el equipo.`,
+            sync: { users: result.users, records: result.records },
+        });
+    } catch (e2) {
+        return res.json({
+            success: true,
+            uploaded: false,
+            synced: false,
+            user_id: userId,
+            nombre: nombreEquipo,
+            warning: `No se pudo subir ni sincronizar: ${errorSubida || ''} / ${e2.message}`,
+            message: 'Usuario guardado localmente',
+        });
+    }
+});
+
+// ----------------------------------------------------------------
 //  API: Asignar / quitar el area de UN usuario (relacion local)
 //  Una sola area por usuario: se guarda en user_areas y persiste.
 // ----------------------------------------------------------------

@@ -23,6 +23,9 @@ class ZKDevice {
         this.CMD = {
             ATTLOG_RRQ:     13,
             USERTEMP_RRQ:   9,
+            USERTEMP_WRRQ:  10, // escribir plantilla de huella (NO usuario)
+            SET_USER:       8,  // CMD_USER_WRQ: alta / edicion de usuario
+            REFRESHDATA:    1013, // refrescar datos internos tras un cambio
             GET_FREE_SIZES: 50,
             CONNECT:        1000,
             EXIT:           1001,
@@ -994,6 +997,81 @@ class ZKDevice {
             5: 'Tarjeta+Clave', 6: 'FP+PWD', 7: 'All', 8: 'All',
         };
         return map[s] || `Verif ${s}`;
+    }
+
+    // ---------------------------------------------------------------
+    //  ALTA DE USUARIO EN EL EQUIPO (K40 Pro)
+    //
+    //  Solo se sube lo esencial:
+    //    - userId : el CI / código del empleado.
+    //    - name   : APELLIDO + NOMBRE (una sola cadena).
+    //  El área NO se envía al equipo: se asigna después, de forma local,
+    //  desde la pestaña "Áreas" (relación usuario <-> área).
+    //
+    //  Secuencia oficial (probada en el K40 Pro real):
+    //     1) CMD_DISABLEDEVICE  (el equipo NO acepta el alta si está activo)
+    //     2) CMD_USER_WRQ (8) con el registro de usuario
+    //     3) CMD_REFRESHDATA
+    //     4) CMD_ENABLEDEVICE   (siempre, aunque falle el alta)
+    // ---------------------------------------------------------------
+    static WRITE_TIMEOUT = 3000;
+
+    async addUser({ userId, name, privilege = 0 }) {
+        if (!this.isConnected) throw new Error('No hay conexión activa con el dispositivo');
+
+        const userIdStr = String(userId || '').trim().substring(0, 24);
+        const nameStr   = String(name || '').trim().substring(0, 24);
+        if (!userIdStr) throw new Error('El CI (código) es obligatorio');
+        if (!nameStr)   throw new Error('El nombre es obligatorio');
+
+        // Registro de 72 bytes (formato de usuario del K40 Pro):
+        //   sn(2) | permiso(1) | password(8) | name(24) | card(4)
+        //   | group(1) | tz(8) | user_id(9) | ceros
+        // Todo lo opcional (password, tarjeta, grupo, timezones) va en cero;
+        // el área NO se envía al equipo.
+        const rec72 = Buffer.alloc(72);
+        rec72.writeUInt16LE(0, 0);                 // sn (lo asigna el equipo)
+        rec72.writeUInt8(privilege & 0xFF, 2);     // permiso (0 = usuario común)
+        Buffer.from(nameStr, 'latin1').copy(rec72, 11, 0, 24);
+        Buffer.from(userIdStr, 'latin1').copy(rec72, 48, 0, 9);
+
+        const intentos = [
+            [this.CMD.SET_USER, rec72],        // CMD_USER_WRQ (ruta oficial)
+            [this.CMD.USERTEMP_WRRQ, rec72],   // respaldo por firmwares antiguos
+        ];
+
+        let ok = false;
+        let lastResp = null;
+
+        // El equipo debe estar deshabilitado para aceptar cambios de usuarios.
+        try {
+            await this._command(this.CMD.DISABLE_DEVICE, Buffer.alloc(0), ZKDevice.WRITE_TIMEOUT);
+        } catch (e) {
+            // si no responde, se intenta igual
+        }
+
+        try {
+            for (const [cmd, payload] of intentos) {
+                try {
+                    const resp = await this._command(cmd, payload, ZKDevice.WRITE_TIMEOUT);
+                    lastResp = resp && resp.command;
+                    if (resp && resp.command === this.CMD.ACK_OK) { ok = true; break; }
+                } catch (e) {
+                    // se prueba la siguiente variante
+                }
+            }
+            if (ok) {
+                try { await this._command(this.CMD.REFRESHDATA, Buffer.alloc(0), ZKDevice.WRITE_TIMEOUT); } catch (e) {}
+            }
+        } finally {
+            // Dejar SIEMPRE el equipo operativo, incluso si el alta falló.
+            try { await this._command(this.CMD.ENABLE_DEVICE, Buffer.alloc(0), ZKDevice.WRITE_TIMEOUT); } catch (e) {}
+        }
+
+        if (!ok) {
+            throw new Error('El equipo no confirmó el alta del usuario' + (lastResp ? ` (respuesta ${lastResp})` : ''));
+        }
+        return true;
     }
 }
 

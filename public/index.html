@@ -137,6 +137,7 @@
         <div class="tab" data-tab="detalle" onclick="showTab('detalle')">Detalle de marcas</div>
         <div class="tab" data-tab="retrasos" onclick="showTab('retrasos')">Retrasos</div>
         <div class="tab" data-tab="horarios" onclick="showTab('horarios')">Horarios</div>
+        <div class="tab" data-tab="adduser" onclick="showTab('adduser')">Agregar Usuario</div>
         <div class="tab" data-tab="dept" onclick="showTab('dept')">Áreas</div>
 
         <div class="tab" data-tab="devices" onclick="showTab('devices')">Dispositivos</div>
@@ -274,6 +275,29 @@
                     <input type="text" id="assignSchSearch" placeholder="Buscar empleado (nombre o CI)..." style="width:100%;margin-bottom:8px;display:none;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" oninput="renderAssignScheduleList()">
                     <div id="assignSchList" class="userlist" style="display:none;max-height:300px;overflow:auto"></div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Agregar Usuario -->
+    <div class="panel" id="panel-adduser">
+        <div class="card">
+            <h3 style="margin:0 0 6px;font-size:16px;color:#1e3a8a">Agregar usuario al biométrico (K40 Pro)</h3>
+            <p class="hint" style="margin:0 0 16px">Se sube solo el <b>CI</b> y el nombre (<b>primer apellido + primer nombre</b>). El <b>área</b> se asigna después en la pestaña <b>Áreas</b>.</p>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;max-width:760px">
+                <label>CI / Código
+                    <input type="text" id="addUserId" placeholder="Ej: 1234567" autocomplete="off" onkeydown="handleAddUserKey(event)">
+                </label>
+                <label>Primer apellido
+                    <input type="text" id="addUserApe" placeholder="Ej: PEREZ" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" onkeydown="handleAddUserKey(event)">
+                </label>
+                <label>Primer nombre
+                    <input type="text" id="addUserNom" placeholder="Ej: JUAN" autocomplete="off" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" onkeydown="handleAddUserKey(event)">
+                </label>
+            </div>
+            <div style="margin-top:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                <button class="sec" onclick="addUserToBiometrico()" style="padding:11px 26px;font-size:15px;font-weight:700">➕ Subir al biométrico</button>
+                <span class="hint" style="margin:0">Si el equipo no acepta el alta, se sincroniza automáticamente.</span>
             </div>
         </div>
     </div>
@@ -511,6 +535,47 @@ let ALL_USERS = [];
 async function loadUsers() {
     const r = await fetch('/api/users');
     ALL_USERS = await r.json();
+}
+
+// Sube un usuario al biométrico: solo CI + primer apellido + primer nombre.
+// Si el equipo no acepta el alta, el backend sincroniza automáticamente.
+async function addUserToBiometrico() {
+    const user_id  = document.getElementById('addUserId').value.trim();
+    const apellido = document.getElementById('addUserApe').value.trim();
+    const nombre   = document.getElementById('addUserNom').value.trim();
+
+    if (!user_id || !apellido || !nombre) {
+        msg('CI, primer apellido y primer nombre son obligatorios', 'err');
+        return;
+    }
+
+    msg('Subiendo usuario al biométrico...', 'ok');
+    try {
+        const r = await fetch('/api/users/zkteco/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id, apellido, nombre })
+        });
+        const j = await r.json();
+        if (!j.success) { msg('❌ ' + (j.error || 'No se pudo agregar'), 'err'); return; }
+
+        if (j.uploaded)       msg(`✅ ${j.message}`, 'ok');
+        else if (j.synced)    msg(`⚠ ${j.message}`, 'err');
+        else                  msg(`⚠ ${j.warning || j.message}`, 'err');
+
+        document.getElementById('addUserId').value = '';
+        document.getElementById('addUserApe').value = '';
+        document.getElementById('addUserNom').value = '';
+        document.getElementById('addUserId').focus();
+        loadUsers(); loadDepartments(); loadDevices();
+    } catch (e) {
+        msg('❌ No se pudo subir: ' + e.message, 'err');
+    }
+    checkStatus();
+}
+
+function handleAddUserKey(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addUserToBiometrico(); }
 }
 
 function openExport() {
