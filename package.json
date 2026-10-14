@@ -12,7 +12,8 @@
     "db:dump": "node db-base.js",
     "db:backup": "node scripts/db-backup.js",
     "db:restore": "node scripts/db-restore.js",
-    "db:doctor": "node scripts/db-doctor.js"
+    "db:doctor": "node scripts/db-doctor.js",
+    "paquete": "node scripts/build-paquete.js"
   },
   "keywords": [],
   "author": "",

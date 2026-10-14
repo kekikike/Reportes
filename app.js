@@ -104,31 +104,31 @@ function setDeviceConfig(ip, port, password) {
 }
 
 // ----------------------------------------------------------------
-//  Departamentos / areas
+//  Areas
 //
-//  El biometrico solo entrega el CODIGO del departamento (group_id) de
-//  cada empleado: no expone el nombre descriptivo. Por eso los codigos
-//  que llegan del equipo se registran solos y el usuario les asigna un
-//  nombre (tabla departments) desde la interfaz.
+//  La relacion usuario <-> area es LOCAL: vive en la tabla `user_areas`
+//  (una area por usuario, un area puede tener varios usuarios) y NO se
+//  pisa al sincronizar con el biometrico. El equipo solo aporta el codigo
+//  de area (group_id), que se registra en `areas` para que el usuario le
+//  asigne un nombre desde la interfaz.
 // ----------------------------------------------------------------
-function deptNameMap() {
+function areaNameMap() {
     const map = Object.create(null);
-    for (const r of db.all('SELECT code, name FROM departments')) {
+    for (const r of db.all('SELECT code, name FROM areas')) {
         if (r.name) map[r.code] = r.name;
     }
     return map;
 }
 
-// { user_id -> { codigo, nombre } } tomando el registro mas reciente
-// (el mismo empleado puede vivir en varios biometricos).
-function userDeptMap() {
+// { user_id -> { codigo, nombre } } tomando la relacion local guardada.
+function userAreaMap() {
     const map = Object.create(null);
-    const names = deptNameMap();
-    for (const r of db.all('SELECT user_id, department, MAX(synced_at) AS synced_at FROM users GROUP BY user_id')) {
-        if (!r.department) continue;
+    const names = areaNameMap();
+    for (const r of db.all('SELECT user_id, area_code FROM user_areas WHERE area_code IS NOT NULL')) {
+        if (!r.area_code) continue;
         map[r.user_id] = {
-            codigo: r.department,
-            nombre: names[r.department] || r.department,
+            codigo: r.area_code,
+            nombre: names[r.area_code] || r.area_code,
         };
     }
     return map;
@@ -136,10 +136,73 @@ function userDeptMap() {
 
 // Registra un codigo recien leido del equipo (sin pisar el nombre ya
 // asignado localmente).
-function _registrarDepartamento(codigo) {
+function _registrarArea(codigo) {
     if (codigo === null || codigo === undefined || codigo === '') return;
-    db.run('INSERT OR IGNORE INTO departments (code, name, updated_at) VALUES (?, NULL, ?)',
+    db.run('INSERT OR IGNORE INTO areas (code, name, updated_at) VALUES (?, NULL, ?)',
         String(codigo), new Date().toISOString());
+}
+
+// ----------------------------------------------------------------
+//  Horarios
+//
+//  Un horario es una plantilla semanal: para cada dia (1=Lunes .. 7=Domingo)
+//  define una hora de inicio y fin. Un empleado se asigna a UN horario.
+//  Hay atraso cuando la entrada del dia supera la hora de inicio mas la
+//  tolerancia (1 minuto por defecto: si inicia 08:30, hasta 08:30:59 es
+//  normal; 08:31:00 o mas es atraso).
+// ----------------------------------------------------------------
+function _hhmmToSec(t) {
+    const p = String(t || '').split(':').map(Number);
+    return (p[0] || 0) * 3600 + (p[1] || 0) * 60 + (p[2] || 0);
+}
+
+// Dia ISO de la semana: 1=Lunes .. 7=Domingo.
+function _isoWeekday(isoDate) {
+    const p = String(isoDate || '').slice(0, 10).split('-').map(Number);
+    if (!p[0] || !p[1] || !p[2]) return 0;
+    const wd = new Date(p[0], p[1] - 1, p[2]).getDay(); // 0=Domingo
+    return wd === 0 ? 7 : wd;
+}
+
+// Carga horarios + dias + asignaciones en un solo paso.
+function loadSchedules() {
+    const scheds = Object.create(null);
+    for (const s of db.all('SELECT id, name, tolerance_min FROM schedules')) {
+        scheds[s.id] = {
+            id: s.id,
+            name: s.name,
+            tolerance_min: Number(s.tolerance_min) || 1,
+            days: Object.create(null),
+        };
+    }
+    for (const d of db.all('SELECT schedule_id, weekday, start_time, end_time FROM schedule_days')) {
+        const s = scheds[d.schedule_id];
+        if (s) s.days[Number(d.weekday)] = { start: d.start_time, end: d.end_time };
+    }
+    const userSched = Object.create(null);
+    for (const r of db.all('SELECT user_id, schedule_id FROM user_schedules WHERE schedule_id IS NOT NULL')) {
+        userSched[r.user_id] = r.schedule_id;
+    }
+    return { scheds, userSched };
+}
+
+// Evalua si una entrada llega tarde respecto del horario del empleado.
+// Devuelve null si no hay horario/dia aplicable para esa fecha.
+function _evalAtraso(entradaTs, schedule) {
+    if (!schedule || !entradaTs) return null;
+    const day = schedule.days[_isoWeekday(entradaTs)];
+    if (!day || !day.start) return null;
+    const startSec = _hhmmToSec(day.start);
+    const entSec   = _hhmmToSec(String(entradaTs).slice(11, 19));
+    const tol      = (Number(schedule.tolerance_min) || 1) * 60;
+    const dif      = entSec - startSec;
+    const late     = entSec > (startSec + tol - 1);
+    return {
+        esperado: String(day.start).slice(0, 5),
+        late,
+        retraso_seg: late ? dif : 0,
+        retraso_min: late ? Math.floor(dif / 60) : 0,
+    };
 }
 
 // ----------------------------------------------------------------
@@ -294,9 +357,9 @@ function _buildJornadas(punches) {
 
 // Consulta las marcaciones del periodo y arma las jornadas.
 // Incluye un día extra para capturar salidas que cruzan medianoche.
-// opts.departamento : filtra por código o nombre de departamento.
-//                   'sin' / '-' = empleados sin departamento asignado.
-function getJornadas({ desde, hasta, q, users, user_id, orden, departamento }) {
+// opts.area : filtra por código o nombre de área.
+//             'sin' / '-' = empleados sin área asignada.
+function getJornadas({ desde, hasta, q, users, user_id, orden, area }) {
     if (!desde) desde = '2000-01-01';
     if (!hasta) hasta = '2099-12-31';
 
@@ -320,32 +383,40 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, departamento }) {
         `SELECT user_id, name, timestamp, punch, status FROM attendance WHERE ${where} ORDER BY user_id, timestamp`
     ).all(...params);
 
-    // El departamento es un atributo del empleado: se resuelve desde la tabla
-    // de usuarios (el mismo carnet puede estar en varios biometricos).
-    const dept = userDeptMap();
-    const filtroDept = String(departamento || '').trim();
+    // El área es un atributo local del empleado: se resuelve desde la tabla
+    // `user_areas` (relación persistida que no se pisa al sincronizar).
+    const dept = userAreaMap();
+    const filtroDept = String(area || '').trim();
+
+    // Horarios: para saber si cada entrada es un atraso.
+    const sched = loadSchedules();
 
     let rows = _buildJornadas(punches).map(j => {
         const d = dept[j.user_id];
+        const ev = _evalAtraso(j.entrada, sched.scheds[sched.userSched[j.user_id]]);
         return {
             date: (j.entrada || '').slice(0, 10),
             user_id: j.user_id,
             name: _cleanNameView(j.name),
-            departamento: d ? d.nombre : '',
-            departamento_codigo: d ? d.codigo : '',
+            area: d ? d.nombre : '',
+            area_codigo: d ? d.codigo : '',
             entrada: j.entrada,
             salida: j.salida,
             marcaciones: j.marcaciones,
             inferida: j.inferida || 0,
+            hora_esperada: ev ? ev.esperado : '',
+            atraso: !!(ev && ev.late),
+            retraso_min: ev && ev.late ? ev.retraso_min : 0,
+            retraso_seg: ev && ev.late ? ev.retraso_seg : 0,
         };
     });
 
     if (filtroDept) {
         const sinDept = ['sin', '-', 'ninguno', 'null'].includes(filtroDept.toLowerCase());
         rows = rows.filter(r => {
-            if (sinDept) return !r.departamento;
-            return String(r.departamento).toLowerCase() === filtroDept.toLowerCase()
-                || String(r.departamento_codigo).toLowerCase() === filtroDept.toLowerCase();
+            if (sinDept) return !r.area;
+            return String(r.area).toLowerCase() === filtroDept.toLowerCase()
+                || String(r.area_codigo).toLowerCase() === filtroDept.toLowerCase();
         });
     }
 
@@ -362,6 +433,42 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, departamento }) {
             }
             return String(a.user_id).localeCompare(String(b.user_id));
         });
+}
+
+// ----------------------------------------------------------------
+//  Atrasos: resumen por persona y detalle por dia.
+//  Reutiliza getJornadas (que ya marca `atraso` en cada jornada).
+// ----------------------------------------------------------------
+function getRetrasos({ desde, hasta, q, area, user_id }) {
+    const rows = getJornadas({ desde, hasta, q, area, user_id });
+    const detalle = rows.filter(r => r.atraso).map(r => ({
+        date: r.date,
+        user_id: r.user_id,
+        name: r.name,
+        area: r.area,
+        area_codigo: r.area_codigo,
+        hora_esperada: r.hora_esperada,
+        entrada: r.entrada,
+        salida: r.salida,
+        retraso_min: r.retraso_min,
+        retraso_seg: r.retraso_seg,
+    }));
+
+    const mapa = Object.create(null);
+    for (const r of detalle) {
+        if (!mapa[r.user_id]) {
+            mapa[r.user_id] = {
+                user_id: r.user_id, name: r.name, area: r.area,
+                area_codigo: r.area_codigo, retrasos: 0, total_min: 0,
+            };
+        }
+        mapa[r.user_id].retrasos++;
+        mapa[r.user_id].total_min += r.retraso_min;
+    }
+    const resumen = Object.values(mapa)
+        .sort((a, b) => b.retrasos - a.retrasos || a.name.localeCompare(b.name, 'es'));
+
+    return { resumen, detalle };
 }
 
 // ----------------------------------------------------------------
@@ -393,9 +500,9 @@ async function syncDevice(dev) {
             const insU = db.prepare('INSERT OR REPLACE INTO users (device_id, uid, user_id, name, privilege, department, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
             for (const u of users) {
                 insU.run(deviceId, u.uid, u.userId, _cleanNameView(u.name), u.privilege, u.department, now);
-                // El equipo solo entrega el codigo del departamento: se registra
+                // El equipo solo entrega el codigo del area: se registra
                 // para poder asignarle un nombre desde la interfaz.
-                _registrarDepartamento(u.department);
+                _registrarArea(u.department);
             }
         }
 
@@ -468,9 +575,9 @@ async function syncDevice(dev) {
             );
         }
 
-        const conDept = users.filter(u => u.department).length;
-        const nuevosDept = db.prepare(
-            'SELECT COUNT(*) AS n FROM departments WHERE name IS NULL OR name = ?'
+        const conArea = users.filter(u => u.department).length;
+        const areasSinNombre = db.prepare(
+            'SELECT COUNT(*) AS n FROM areas WHERE name IS NULL OR name = ?'
         ).get(now).n;
 
         return {
@@ -480,8 +587,8 @@ async function syncDevice(dev) {
             records: records.length,
             incremental,
             deviceRecords: deviceTotal,
-            conDepartamento: conDept,
-            departamentos: nuevosDept,
+            conArea,
+            areasSinNombre,
         };
     } finally {
         try { if (zkRetry) await zkRetry.disconnect(); } catch (e) {}
@@ -599,167 +706,128 @@ app.post('/api/device/config', (req, res) => {
 });
 
 // ----------------------------------------------------------------
-//  API: Usuarios (desde SQLite local o directo del dispositivo)
+//  API: Usuarios (desde SQLite local) con su area asignada
 // ----------------------------------------------------------------
 app.get('/api/users', (req, res) => {
     // El mismo carnet (user_id) puede vivir en varios biométricos: se
     // entrega UN solo registro por empleado (se toma el más reciente).
     const rows = db.prepare(
-        'SELECT user_id, name, department, MAX(synced_at) AS synced_at FROM users GROUP BY user_id ORDER BY name COLLATE NOCASE'
+        'SELECT user_id, name, MAX(synced_at) AS synced_at FROM users GROUP BY user_id ORDER BY name COLLATE NOCASE'
     ).all();
 
-    const nombres = deptNameMap();
-    let out = rows.map(r => ({
-        user_id: r.user_id,
-        name: _cleanNameView(r.name),
-        synced_at: r.synced_at,
-        departamento_codigo: r.department || '',
-        departamento: r.department ? (nombres[r.department] || r.department) : '',
-    }));
+    const nombres = areaNameMap();
+    const asignaciones = Object.create(null);
+    for (const r of db.all('SELECT user_id, area_code FROM user_areas')) {
+        asignaciones[r.user_id] = r.area_code;
+    }
 
-    const dep = String((req.query && req.query.departamento) || '').trim();
+    // Horario asignado (uno por empleado).
+    const schedNames = Object.create(null);
+    for (const s of db.all('SELECT id, name FROM schedules')) schedNames[s.id] = s.name;
+    const schedAsign = Object.create(null);
+    for (const r of db.all('SELECT user_id, schedule_id FROM user_schedules WHERE schedule_id IS NOT NULL')) {
+        schedAsign[r.user_id] = r.schedule_id;
+    }
+
+    let out = rows.map(r => {
+        const code = asignaciones[r.user_id] || '';
+        const sid = schedAsign[r.user_id] || null;
+        return {
+            user_id: r.user_id,
+            name: _cleanNameView(r.name),
+            synced_at: r.synced_at,
+            area_codigo: code,
+            area: code ? (nombres[code] || code) : '',
+            schedule_id: sid,
+            schedule: sid ? (schedNames[sid] || '') : '',
+        };
+    });
+
+    const dep = String((req.query && req.query.area) || '').trim();
     if (dep) {
-        const sinDept = ['sin', '-', 'ninguno', 'null'].includes(dep.toLowerCase());
-        out = out.filter(u => sinDept ? !u.departamento : u.departamento === dep || u.departamento_codigo === dep);
+        const sinArea = ['sin', '-', 'ninguno', 'null'].includes(dep.toLowerCase());
+        out = out.filter(u => sinArea ? !u.area : u.area === dep || u.area_codigo === dep);
     }
     res.json(out);
 });
 
 // ----------------------------------------------------------------
-//  API: Actualizar departamento de un usuario (manual)
+//  API: Asignar / quitar el area de UN usuario (relacion local)
+//  Una sola area por usuario: se guarda en user_areas y persiste.
 // ----------------------------------------------------------------
-//  API: Actualizar departamento de un usuario (manual)
-// ----------------------------------------------------------------
-app.put('/api/users/:user_id/department', (req, res) => {
+app.put('/api/users/:user_id/area', (req, res) => {
     const userId = String(req.params.user_id || '').trim();
-    const { department } = req.body || {};
-    const code = String(department || '').trim();
+    const { area } = req.body || {};
+    const code = String(area || '').trim();
     if (!userId) return res.status(400).json({ success: false, error: 'user_id requerido' });
-    const newDept = code === '' ? null : code;
-    const info = db.run('UPDATE users SET department = ? WHERE user_id = ?', newDept, userId);
-    db.save();
-    res.json({ success: true, user_id: userId, department: newDept, changes: info.changes });
-});
 
-// ----------------------------------------------------------------
-//  API: Actualizar departamento de varios usuarios (bulk)
-// ----------------------------------------------------------------
-app.post('/api/users/departments/bulk', (req, res) => {
-    const { user_ids, department } = req.body || {};
-    const code = String(department || '').trim();
-    const newDept = code === '' ? null : code;
-    
-    if (!Array.isArray(user_ids) || user_ids.length === 0) {
-        return res.status(400).json({ success: false, error: 'user_ids requerido (array)' });
-    }
-    
-    const stmt = db.prepare('UPDATE users SET department = ? WHERE user_id = ?');
-    const tx = db.transaction((ids) => {
-        let changes = 0;
-        for (const uid of ids) {
-            const info = stmt.run(newDept, String(uid));
-            changes += info.changes;
-        }
-        return changes;
-    });
-    
     try {
-        const changes = tx(user_ids);
+        if (code === '') {
+            db.run('DELETE FROM user_areas WHERE user_id = ?', userId);
+        } else {
+            _registrarArea(code);
+            db.run(
+                `INSERT INTO user_areas (user_id, area_code, updated_at) VALUES (?, ?, ?)
+                 ON CONFLICT(user_id) DO UPDATE SET area_code = excluded.area_code, updated_at = excluded.updated_at`,
+                userId, code, new Date().toISOString()
+            );
+        }
         db.save();
-        res.json({ success: true, department: newDept, changes });
+        res.json({ success: true, user_id: userId, area: code || null });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
 });
 
 // ----------------------------------------------------------------
-//  API: Agregar usuario al biométrico K40 Pro
+//  API: Asignar / quitar el area de VARIOS usuarios (bulk)
 // ----------------------------------------------------------------
-app.post('/api/users/zkteco/add', async (req, res) => {
-    const { user_id, nombre, apellido_paterno, departamento } = req.body || {};
-    
-    if (!user_id || !String(user_id).trim()) {
-        return res.status(400).json({ success: false, error: 'ID de usuario requerido' });
+app.post('/api/users/areas/bulk', (req, res) => {
+    const { user_ids, area } = req.body || {};
+    const code = String(area || '').trim();
+
+    if (!Array.isArray(user_ids) || user_ids.length === 0) {
+        return res.status(400).json({ success: false, error: 'user_ids requerido (array)' });
     }
-    if (!nombre || !String(nombre).trim()) {
-        return res.status(400).json({ success: false, error: 'Nombre requerido' });
-    }
-    if (!apellido_paterno || !String(apellido_paterno).trim()) {
-        return res.status(400).json({ success: false, error: 'Apellido paterno requerido' });
-    }
-    
-    const userId = String(user_id).trim().toUpperCase();
-    const nombreStr = String(nombre).trim().toUpperCase();
-    const apellidoStr = String(apellido_paterno).trim().toUpperCase();
-    const deptCode = departamento ? String(departamento).trim().toUpperCase() : null;
-    
-    // En el biométrico se guarda nombre + apellido separados por espacio
-    const nombreCompletoBiometrico = `${nombreStr} ${apellidoStr}`;
-    const nombreLocal = `${nombreStr} ${apellidoStr}`;
-    const now = new Date().toISOString();
-    
-    // Guardar primero en BD local
+
     try {
-        const device = db.get('SELECT * FROM devices WHERE active = 1 ORDER BY id LIMIT 1');
-        const deviceId = device ? device.id : 1;
-        const nombreBD = nombreLocal.replace(/;/g, ' ').replace(/\s+/g, ' ').replace(/[Ññ]/g, 'N').trim();
-        db.prepare('INSERT OR REPLACE INTO users (device_id, uid, user_id, name, privilege, department, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
-            deviceId, 0, userId, nombreBD, 0, null, now
+        const del = db.prepare('DELETE FROM user_areas WHERE user_id = ?');
+        const upsert = db.prepare(
+            `INSERT INTO user_areas (user_id, area_code, updated_at) VALUES (?, ?, ?)
+             ON CONFLICT(user_id) DO UPDATE SET area_code = excluded.area_code, updated_at = excluded.updated_at`
         );
+        const now = new Date().toISOString();
+        if (code !== '') _registrarArea(code);
+        const tx = db.transaction((ids) => {
+            let changes = 0;
+            for (const uid of ids) {
+                if (code === '') changes += del.run(String(uid)).changes;
+                else changes += upsert.run(String(uid), code, now).changes;
+            }
+            return changes;
+        });
+        const changes = tx(user_ids);
         db.save();
-    } catch (e) {}
-    
-    const cfg = deviceConfig();
-    const zk = new ZKDevice(cfg.ip, cfg.port, cfg.password, 5000);
-    let biometricoOk = false;
-    let biometricoError = null;
-    
-    try {
-        await zk.connect();
-        await zk.addUser({
-            userId: userId,
-            name: nombreCompletoBiometrico.replace(/;/g,' ').replace(/[Ññ]/g,'N').trim(),
-            department: null
-        });
-        await zk.disconnect();
-        biometricoOk = true;
-    } catch (err) {
-        try { await zk.disconnect(); } catch (e) {}
-        biometricoError = err.message;
-    }
-    
-    if (biometricoOk) {
-        res.json({
-            success: true,
-            message: 'Usuario agregado correctamente al biométrico',
-            user_id: userId,
-            nombre: nombreCompletoBiometrico
-        });
-    } else {
-        res.json({
-            success: true,
-            warning: 'Usuario guardado en BD local pero no se pudo enviar al biométrico: ' + (biometricoError || 'Error'),
-            message: 'Usuario guardado localmente',
-            user_id: userId,
-            nombre: nombreCompletoBiometrico
-        });
+        res.json({ success: true, area: code || null, changes });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
     }
 });
 
 // ----------------------------------------------------------------
-//  API: Departamentos / areas
-//  GET    : codigos leidos del biometrico + nombre asignado + empleados
-//  POST   : asigna (o cambia) el nombre de un codigo
-//  DELETE : quita el nombre asignado (el codigo sigue vigente)
+//  API: Areas
+//  GET    : codigos leidos del biometrico + nombre asignado + usuarios
+//  POST   : crea el area o cambia su nombre
+//  DELETE : elimina el area y deja sin area a sus usuarios
 // ----------------------------------------------------------------
-app.get('/api/departments', (req, res) => {
+app.get('/api/areas', (req, res) => {
     const conteo = Object.create(null);
-    for (const r of db.all('SELECT department, COUNT(*) AS n FROM users WHERE department IS NOT NULL GROUP BY department')) {
-        conteo[r.department] = r.n;
+    for (const r of db.all('SELECT area_code, COUNT(*) AS n FROM user_areas WHERE area_code IS NOT NULL GROUP BY area_code')) {
+        conteo[r.area_code] = r.n;
     }
-    const filas = db.all('SELECT code, name, updated_at FROM departments ORDER BY code COLLATE NOCASE');
+    const filas = db.all('SELECT code, name, updated_at FROM areas ORDER BY code COLLATE NOCASE');
 
-    //.Include tambien los codigos que aun no estan en la tabla (por si la
+    // Incluye tambien los codigos que aun no estan en la tabla (por si la
     // migracion se hizo despues de la primera sync).
     for (const code of Object.keys(conteo)) {
         if (!filas.some(f => f.code === code)) {
@@ -775,25 +843,125 @@ app.get('/api/departments', (req, res) => {
     })));
 });
 
-app.post('/api/departments', (req, res) => {
+app.post('/api/areas', (req, res) => {
     const { code, name } = req.body || {};
     const c = String(code || '').trim();
     const n = String(name || '').trim();
     if (!c) return res.status(400).json({ success: false, error: 'code requerido' });
     db.run(
-        'INSERT INTO departments (code, name, updated_at) VALUES (?, ?, ?) ON CONFLICT(code) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at',
+        'INSERT INTO areas (code, name, updated_at) VALUES (?, ?, ?) ON CONFLICT(code) DO UPDATE SET name = excluded.name, updated_at = excluded.updated_at',
         c, n || null, new Date().toISOString()
     );
     db.save();
     res.json({ success: true, codigo: c, nombre: n || c });
 });
 
-app.delete('/api/departments/:code', (req, res) => {
+app.delete('/api/areas/:code', (req, res) => {
     const code = String(req.params.code || '').trim();
     if (!code) return res.status(400).json({ success: false, error: 'code invalido' });
-    const info = db.run('DELETE FROM departments WHERE code = ?', code);
+    // Los usuarios del area quedan sin area (la relación se elimina).
+    db.run('DELETE FROM user_areas WHERE area_code = ?', code);
+    const info = db.run('DELETE FROM areas WHERE code = ?', code);
     db.save();
     res.json({ success: true, changes: info.changes });
+});
+
+// ----------------------------------------------------------------
+//  API: Horarios
+//  GET    : lista de horarios con sus dias y cantidad de empleados
+//  POST   : crea (sin id) o actualiza (con id) un horario y sus dias
+//  DELETE : elimina el horario y desasigna a sus empleados
+//  PUT    : /api/users/:user_id/schedule  -> asignar un horario a un empleado
+// ----------------------------------------------------------------
+app.get('/api/schedules', (req, res) => {
+    const conteo = Object.create(null);
+    for (const r of db.all('SELECT schedule_id, COUNT(*) AS n FROM user_schedules WHERE schedule_id IS NOT NULL GROUP BY schedule_id')) {
+        conteo[r.schedule_id] = r.n;
+    }
+    const scheds = db.all('SELECT id, name, tolerance_min FROM schedules ORDER BY name COLLATE NOCASE');
+    const days = db.all('SELECT schedule_id, weekday, start_time, end_time FROM schedule_days ORDER BY weekday');
+
+    res.json(scheds.map(s => ({
+        id: s.id,
+        name: s.name,
+        tolerance_min: s.tolerance_min || 1,
+        empleados: conteo[s.id] || 0,
+        days: days.filter(d => d.schedule_id === s.id).map(d => ({
+            weekday: d.weekday,
+            start: d.start_time,
+            end: d.end_time,
+        })),
+    })));
+});
+
+app.post('/api/schedules', (req, res) => {
+    const { id, name, days } = req.body || {};
+    const nombre = String(name || '').trim();
+    if (!nombre) return res.status(400).json({ success: false, error: 'El nombre del horario es obligatorio' });
+
+    const lista = (Array.isArray(days) ? days : [])
+        .map(d => ({
+            weekday: Number(d.weekday),
+            start: String(d.start || '').slice(0, 5),
+            end: String(d.end || '').slice(0, 5),
+        }))
+        .filter(d => d.weekday >= 1 && d.weekday <= 7 && d.start && d.end);
+
+    try {
+        const now = new Date().toISOString();
+        const upsert = db.prepare(
+            `INSERT INTO schedules (name, tolerance_min, updated_at) VALUES (?, 1, ?)`
+        );
+        const tx = db.transaction(() => {
+            let sid = id ? Number(id) : 0;
+            if (sid) {
+                db.run('UPDATE schedules SET name = ?, updated_at = ? WHERE id = ?', nombre, now, sid);
+            } else {
+                sid = upsert.run(nombre, now).lastInsertRowid;
+            }
+            db.run('DELETE FROM schedule_days WHERE schedule_id = ?', sid);
+            const insD = db.prepare('INSERT INTO schedule_days (schedule_id, weekday, start_time, end_time) VALUES (?, ?, ?, ?)');
+            for (const d of lista) insD.run(sid, d.weekday, d.start, d.end);
+            return sid;
+        });
+        const sid = tx();
+        db.save();
+        res.json({ success: true, id: sid });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+app.delete('/api/schedules/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    if (!id) return res.status(400).json({ success: false, error: 'id invalido' });
+    db.run('DELETE FROM user_schedules WHERE schedule_id = ?', id);
+    db.run('DELETE FROM schedule_days WHERE schedule_id = ?', id);
+    const info = db.run('DELETE FROM schedules WHERE id = ?', id);
+    db.save();
+    res.json({ success: true, changes: info.changes });
+});
+
+app.put('/api/users/:user_id/schedule', (req, res) => {
+    const userId = String(req.params.user_id || '').trim();
+    if (!userId) return res.status(400).json({ success: false, error: 'user_id requerido' });
+    const { schedule_id } = req.body || {};
+    try {
+        const sid = (schedule_id === '' || schedule_id === null || schedule_id === undefined) ? null : Number(schedule_id);
+        if (!sid) {
+            db.run('DELETE FROM user_schedules WHERE user_id = ?', userId);
+        } else {
+            db.run(
+                `INSERT INTO user_schedules (user_id, schedule_id, updated_at) VALUES (?, ?, ?)
+                 ON CONFLICT(user_id) DO UPDATE SET schedule_id = excluded.schedule_id, updated_at = excluded.updated_at`,
+                userId, sid, new Date().toISOString()
+            );
+        }
+        db.save();
+        res.json({ success: true, user_id: userId, schedule_id: sid });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
 });
 
 // ----------------------------------------------------------------
@@ -842,7 +1010,7 @@ app.get('/api/attendance/users', (req, res) => {
     }
 
     const users = db.prepare(
-        `SELECT user_id, name, department, MAX(synced_at) AS synced_at FROM users WHERE ${where} GROUP BY user_id ORDER BY name COLLATE NOCASE`
+        `SELECT user_id, name, MAX(synced_at) AS synced_at FROM users WHERE ${where} GROUP BY user_id ORDER BY name COLLATE NOCASE`
     ).all(...params);
 
     const counts = db.prepare(`
@@ -855,26 +1023,54 @@ app.get('/api/attendance/users', (req, res) => {
     const cmap = Object.create(null);
     for (const c of counts) cmap[c.user_id] = c.n;
 
-    const nombres = deptNameMap();
+    const nombres = areaNameMap();
+    const asignaciones = Object.create(null);
+    for (const r of db.all('SELECT user_id, area_code FROM user_areas')) {
+        asignaciones[r.user_id] = r.area_code;
+    }
 
-    res.json(users.map(u => ({
-        user_id: u.user_id,
-        name: _cleanNameView(u.name),
-        marcaciones: cmap[u.user_id] || 0,
-        departamento_codigo: u.department || '',
-        departamento: u.department ? (nombres[u.department] || u.department) : '',
-    })));
+    res.json(users.map(u => {
+        const code = asignaciones[u.user_id] || '';
+        return {
+            user_id: u.user_id,
+            name: _cleanNameView(u.name),
+            marcaciones: cmap[u.user_id] || 0,
+            area_codigo: code,
+            area: code ? (nombres[code] || code) : '',
+        };
+    }));
 });
 
 // ----------------------------------------------------------------
 //  API: Resumen diario por usuario
 // ----------------------------------------------------------------
 app.get('/api/summary', (req, res) => {
-    let { desde, hasta, user_id, q, users, orden, departamento } = req.query;
+    let { desde, hasta, user_id, q, users, orden, area } = req.query;
     if (!desde) desde = new Date().toISOString().slice(0, 10);
     if (!hasta) hasta = desde;
 
-    res.json({ desde, hasta, records: getJornadas({ desde, hasta, user_id, q, users, orden, departamento }) });
+    res.json({ desde, hasta, records: getJornadas({ desde, hasta, user_id, q, users, orden, area }) });
+});
+
+// ----------------------------------------------------------------
+//  API: Atrasos
+//  GET /api/retrasos          -> resumen por persona (solo con atrasos)
+//  GET /api/retrasos/detalle  -> dias con atraso de UN empleado
+// ----------------------------------------------------------------
+app.get('/api/retrasos', (req, res) => {
+    let { desde, hasta, q, area } = req.query;
+    if (!desde) desde = '2000-01-01';
+    if (!hasta) hasta = '2099-12-31';
+    const { resumen } = getRetrasos({ desde, hasta, q, area });
+    res.json({ desde, hasta, resumen });
+});
+
+app.get('/api/retrasos/detalle', (req, res) => {
+    let { desde, hasta, q, area, user_id } = req.query;
+    if (!desde) desde = '2000-01-01';
+    if (!hasta) hasta = '2099-12-31';
+    const { detalle } = getRetrasos({ desde, hasta, q, area, user_id });
+    res.json({ user_id: user_id || null, records: detalle });
 });
 
 // ----------------------------------------------------------------
@@ -939,20 +1135,20 @@ app.post('/api/devices/:id/config', (req, res) => {
 //  API: Exportar CSV
 // ----------------------------------------------------------------
 app.get('/api/export/csv', (req, res) => {
-    let { desde, hasta, q, users, departamento } = req.query;
+    let { desde, hasta, q, users, area, orden } = req.query;
     if (!desde) desde = '2000-01-01';
     if (!hasta) hasta = '2099-12-31';
 
     const detallado = !!(q && q.trim()) || !!(users && String(users).trim());
-    const rows = getJornadas({ desde, hasta, q, users, departamento });
+    const rows = getJornadas({ desde, hasta, q, users, area, orden });
     const fmtDate  = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
     const q2 = s => '"' + String(s || '').replace(/"/g, '""') + '"';
 
-    const cols = ['CI', 'Nombre', 'Departamento', 'Entrada', 'Salida'];
+    const cols = ['CI', 'Nombre', 'Área', 'Entrada', 'Salida'];
     if (detallado) cols.push('Marcaciones');
 
     const linea = (r) => {
-        const c = [r.user_id, q2(r.name), q2(r.departamento)];
+        const c = [r.user_id, q2(r.name), q2(r.area)];
         c.push((r.entrada || '').slice(11, 19), (r.salida || '').slice(11, 19));
         if (detallado) c.push(r.marcaciones);
         return c.join(',');
@@ -978,18 +1174,18 @@ app.get('/api/export/csv', (req, res) => {
 //  API: Exportar Excel
 // ----------------------------------------------------------------
 app.get('/api/export/excel', async (req, res) => {
-    let { desde, hasta, q, users, departamento } = req.query;
+    let { desde, hasta, q, users, area, orden } = req.query;
     if (!desde) desde = '2000-01-01';
     if (!hasta) hasta = '2099-12-31';
 
     const detallado = !!(q && q.trim()) || !!(users && String(users).trim());
     const fmtDate = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
-    const rows = getJornadas({ desde, hasta, q, users, departamento });
+    const rows = getJornadas({ desde, hasta, q, users, area, orden });
 
     const cols = [
         { header: 'CI', key: 'user_id', width: 14 },
         { header: 'Nombre', key: 'name', width: 30 },
-        { header: 'Departamento', key: 'departamento', width: 22 },
+        { header: 'Área', key: 'area', width: 22 },
         { header: 'Entrada', key: 'entrada', width: 12 },
         { header: 'Salida', key: 'salida', width: 12 },
     ];
@@ -1000,7 +1196,7 @@ app.get('/api/export/excel', async (req, res) => {
         date: fmtDate(r.date),
         user_id: r.user_id,
         name: r.name,
-        departamento: r.departamento || '',
+        area: r.area || '',
         entrada: (r.entrada || '').slice(11, 19),
         salida: (r.salida || '').slice(11, 19),
         marcaciones: r.marcaciones,
@@ -1041,19 +1237,19 @@ app.get('/api/export/excel', async (req, res) => {
 //  API: Exportar PDF
 // ----------------------------------------------------------------
 app.get('/api/export/pdf', (req, res) => {
-    let { desde, hasta, q, users, departamento } = req.query;
+    let { desde, hasta, q, users, area, orden } = req.query;
     if (!desde) desde = '2000-01-01';
     if (!hasta) hasta = '2099-12-31';
 
     const detallado = !!(q && q.trim()) || !!(users && String(users).trim());
     const fmtDate = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
 
-    const rows = getJornadas({ desde, hasta, q, users, departamento });
+    const rows = getJornadas({ desde, hasta, q, users, area, orden });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="asistencia_${desde}_${hasta}.pdf"`);
 
-    const headers = ['CI', 'Nombre', 'Departamento', 'Entrada', 'Salida'];
+    const headers = ['CI', 'Nombre', 'Área', 'Entrada', 'Salida'];
     const widths  = [80, 230, 150, 190, 190];
     if (detallado) { headers.push('Marc.'); widths.push(60); }
 
@@ -1064,7 +1260,7 @@ app.get('/api/export/pdf', (req, res) => {
             prevFecha = r.date;
             items.push({ type: 'date', text: fmtDate(r.date) });
         }
-        const cells = [r.user_id, r.name || '', r.departamento || '-'];
+        const cells = [r.user_id, r.name || '', r.area || '-'];
         cells.push((r.entrada || '').slice(11, 19), (r.salida || '').slice(11, 19));
         if (detallado) cells.push(String(r.marcaciones));
         items.push({ type: 'row', cells });
@@ -1075,6 +1271,81 @@ app.get('/api/export/pdf', (req, res) => {
         subtitle: `Periodo: ${desde} al ${hasta}  |  Registros: ${rows.length}`,
         headers, widths, items,
     }));
+});
+
+// ----------------------------------------------------------------
+//  API: Exportar a Excel los atrasos
+//  - /api/export/retrasos/excel          -> resumen por persona
+//  - /api/export/retrasos-detalle/excel  -> dias de UN empleado
+// ----------------------------------------------------------------
+const _estiloCabeceraAtrasos = (row) => {
+    row.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    row.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFB91C1C' } };
+};
+
+app.get('/api/export/retrasos/excel', async (req, res) => {
+    let { desde, hasta, q, area } = req.query;
+    if (!desde) desde = '2000-01-01';
+    if (!hasta) hasta = '2099-12-31';
+
+    const { resumen } = getRetrasos({ desde, hasta, q, area });
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Atrasos');
+    ws.columns = [
+        { header: 'CI',          key: 'user_id',  width: 16 },
+        { header: 'Nombre',      key: 'name',     width: 32 },
+        { header: 'Área',        key: 'area',     width: 22 },
+        { header: 'Atrasos',     key: 'retrasos', width: 12 },
+        { header: 'Total (min)', key: 'total_min',width: 14 },
+    ];
+    _estiloCabeceraAtrasos(ws.getRow(1));
+    for (const r of resumen) {
+        ws.addRow({ user_id: r.user_id, name: r.name, area: r.area || '', retrasos: r.retrasos, total_min: r.total_min });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="atrasos_${desde}_${hasta}.xlsx"`);
+    await wb.xlsx.write(res);
+    res.end();
+});
+
+app.get('/api/export/retrasos-detalle/excel', async (req, res) => {
+    let { desde, hasta, q, area, user_id } = req.query;
+    if (!desde) desde = '2000-01-01';
+    if (!hasta) hasta = '2099-12-31';
+
+    const { detalle } = getRetrasos({ desde, hasta, q, area, user_id });
+    const fmtDate = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Detalle atrasos');
+    ws.columns = [
+        { header: 'CI',            key: 'user_id',  width: 16 },
+        { header: 'Nombre',        key: 'name',     width: 32 },
+        { header: 'Área',          key: 'area',     width: 22 },
+        { header: 'Fecha',         key: 'fecha',    width: 14 },
+        { header: 'Hora esperada', key: 'esperado', width: 16 },
+        { header: 'Entrada',       key: 'entrada',  width: 14 },
+        { header: 'Retraso (min)', key: 'retraso',  width: 14 },
+    ];
+    _estiloCabeceraAtrasos(ws.getRow(1));
+    for (const r of detalle) {
+        ws.addRow({
+            user_id: r.user_id,
+            name: r.name,
+            area: r.area || '',
+            fecha: fmtDate(r.date),
+            esperado: r.hora_esperada,
+            entrada: (r.entrada || '').slice(11, 19),
+            retraso: r.retraso_min,
+        });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="atrasos_detalle_${desde}_${hasta}.xlsx"`);
+    await wb.xlsx.write(res);
+    res.end();
 });
 
 // ----------------------------------------------------------------

@@ -23,8 +23,6 @@ class ZKDevice {
         this.CMD = {
             ATTLOG_RRQ:     13,
             USERTEMP_RRQ:   9,
-            USERTEMP_WRRQ:  10, // escribir usuario
-            SET_USER:       8,
             GET_FREE_SIZES: 50,
             CONNECT:        1000,
             EXIT:           1001,
@@ -281,11 +279,6 @@ class ZKDevice {
         await this._sendFrame(cmd, payload);
         return this._recvFrame(timeoutMs);
     }
-
-    // Timeout corto para comandos de escritura de usuarios: si un firmware
-    // no responde ACK a una variante de trama, no queremos esperar el
-    // timeout completo por cada una (varias variantes seguidas = minutos).
-    static WRITE_TIMEOUT = 500;
 
     // ---------------------------------------------------------------
     //  Decodificar tiempo ZK (4 bytes LE -> Date)
@@ -1001,80 +994,6 @@ class ZKDevice {
             5: 'Tarjeta+Clave', 6: 'FP+PWD', 7: 'All', 8: 'All',
         };
         return map[s] || `Verif ${s}`;
-    }
-
-    // ---------------------------------------------------------------
-    //  Agregar usuario al biométrico (K40)
-    //  userId: CI (máx 24 chars)
-    //  name: Nombres y Apellido Paterno unidos por espacio (máx 24 chars)
-    //  department: group_id (código de área)
-    // ---------------------------------------------------------------
-    async addUser({ userId, name, department = null, privilege = 0 }) {
-        if (!this.isConnected) throw new Error('No hay conexión activa con el dispositivo');
-        if (!userId || !userId.trim()) throw new Error('userId requerido');
-        if (!name || !name.trim()) throw new Error('name requerido');
-        
-        const uid = 0;
-        const card = 0;
-        const pass = '';
-        const dept = ZKDevice._normDepartment(department) || '';
-        
-        const userIdStr = String(userId).trim().substring(0, 24);
-        const nameStr = String(name).trim().substring(0, 24);
-        const deptStr = String(dept).trim().substring(0, 7);
-        const deptNum = parseInt(dept) || 0;
-        const userIdNum = parseInt(userId);
-        
-        // Formato más compatible con K40 Pro: usar PACKET_SIZE 28 (registro corto)
-        // Enviar con CMD.DATA_WRRQ estilo pyzk - o usar comando directo
-        // Intentar con formato 28 (el que usa getUsers 28 bytes)
-        const rec28 = Buffer.alloc(28);
-        rec28.writeUInt16LE(uid, 0);
-        rec28.writeUInt8(privilege & 0xFF, 2);
-        Buffer.from(pass.substring(0, 5), 'latin1').copy(rec28, 3, 0, 5);
-        Buffer.from(nameStr.substring(0, 8), 'latin1').copy(rec28, 8, 0, 8);
-        rec28.writeUInt32LE(card, 16);
-        rec28.writeUInt8(deptNum & 0xFF, 21);
-        // timezone 0
-        rec28.writeUInt16LE(0, 22);
-        rec28.writeUInt32LE(Number.isNaN(userIdNum) ? uid : userIdNum, 24);
-        
-        const rec72 = Buffer.alloc(72);
-        rec72.writeUInt16LE(uid, 0);
-        rec72.writeUInt8(privilege & 0xFF, 2);
-        Buffer.from(pass, 'latin1').copy(rec72, 3, 0, 8);
-        Buffer.from(nameStr, 'latin1').copy(rec72, 11, 0, 24);
-        rec72.writeUInt32LE(card, 35);
-        Buffer.from(deptStr, 'latin1').copy(rec72, 40, 0, 7);
-        rec72.writeUInt8(0, 47);
-        Buffer.from(userIdStr, 'latin1').copy(rec72, 48, 0, 24);
-        
-        // Probar formato 28 (más común)
-        try {
-            const resp = await this._command(this.CMD.USERTEMP_WRRQ, rec28, ZKDevice.WRITE_TIMEOUT);
-            if (resp.command === this.CMD.ACK_OK) return true;
-            // Si no es ACK_OK, intentar payload con header
-        } catch (e) {}
-        
-        // Intentar formato 72
-        try {
-            const resp72 = await this._command(this.CMD.USERTEMP_WRRQ, rec72, ZKDevice.WRITE_TIMEOUT);
-            if (resp72.command === this.CMD.ACK_OK) return true;
-        } catch (e) {}
-        
-        // Intentar CMD_SET_USER (8) con formato 72 - más directo
-        try {
-            const respSet = await this._command(8, rec72, ZKDevice.WRITE_TIMEOUT);
-            if (respSet.command === this.CMD.ACK_OK) return true;
-        } catch (e3) {
-            // Intentar formato 28
-            try {
-                const respSet2 = await this._command(8, rec28, ZKDevice.WRITE_TIMEOUT);
-                if (respSet2.command === this.CMD.ACK_OK) return true;
-            } catch (e4) {}
-        }
-        
-        throw new Error('No se pudo agregar el usuario al biométrico');
     }
 }
 

@@ -52,6 +52,43 @@
     .badge.no { background: #fef3c7; color: #92400e; }
 
     .missing { color: #b45309; font-weight: 600; }
+    td.late { background: #fee2e2 !important; }
+    td.late b { color: #b91c1c; }
+    .rrow { cursor: pointer; }
+    .rrow:hover { background: #eef2ff; }
+    .rrow.open { background: #e0e7ff; font-weight: 600; }
+    .sch-item { padding: 10px 12px; margin-bottom: 6px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; background: #fff; }
+    .sch-item:hover { background: #f8fafc; }
+
+    /* Editor de horario: barra de 24 h por día */
+    .daycard { padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; background: #fff; }
+    .dayrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .dayrow .dname { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; color: #1e3a8a; width: 96px; cursor: pointer; }
+    .dayrow input[type=time] { padding: 3px 6px; font-size: 13px; border: 1px solid #d1d5db; border-radius: 6px; }
+    .dayrow .sep { color: #9ca3af; font-size: 12px; }
+    .dayrow .dur { margin-left: auto; font-size: 11px; color: #6b7280; white-space: nowrap; }
+    .daybar { position: relative; height: 26px; border: 1px solid #cbd5e1; border-radius: 6px; background: #f8fafc; cursor: pointer; overflow: hidden; user-select: none; touch-action: none; }
+    .daybar.off { opacity: .5; }
+    .daybar-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(24, 1fr); pointer-events: none; }
+    .daybar-grid span { border-right: 1px solid #eef2f7; }
+    .daybar-grid span:nth-child(3n) { border-right-color: #e2e8f0; }
+    .daybar-sel { position: absolute; top: 0; bottom: 0; background: rgba(37,99,235,.30); pointer-events: none; display: none; }
+    .daybar-sel.over { background: rgba(217,119,6,.35); }
+    .daybar-handle { position: absolute; top: 0; bottom: 0; width: 8px; background: #2563eb; border-radius: 3px; transform: translateX(-50%); pointer-events: none; box-shadow: 0 0 0 1px #fff inset; }
+    .daybar-handle.over { background: #d97706; }
+    .daybar-labels { display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af; margin-top: 2px; }
+
+    /* Combobox de búsqueda de plantilla base */
+    .sched-combo { position: relative; display: inline-block; min-width: 240px; }
+    .sched-combo input { width: 100%; padding: 7px 10px; font-size: 13px; border: 1px solid #d1d5db; border-radius: 6px; }
+    .sched-combo-list { position: absolute; top: calc(100% + 3px); left: 0; right: 0; max-height: 220px; overflow: auto; background: #fff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 8px 22px rgba(0,0,0,.15); z-index: 80; display: none; }
+    .sched-combo-list.open { display: block; }
+    .sched-combo-item { padding: 7px 10px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 2px; }
+    .sched-combo-item:last-child { border-bottom: none; }
+    .sched-combo-item:hover, .sched-combo-item.sel { background: #eff6ff; }
+    .sched-combo-item b { font-size: 13px; color: #1e3a8a; }
+    .sched-combo-item span { font-size: 11px; color: #6b7280; }
+    .sched-combo-empty { padding: 9px 10px; font-size: 12px; color: #9ca3af; }
     .dateRow td { background: #eef2ff; font-weight: 700; color: #1e3a8a; font-size: 13px; position: sticky; top: var(--es-thead-h, 38px); z-index: 2; box-shadow: 0 1px 0 #c7d2fe; }
 
     .urow { cursor: pointer; }
@@ -72,7 +109,9 @@
 
     .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 50; }
     .modal-mask.open { display: flex; }
-    .modal { background: #fff; border-radius: 12px; padding: 22px; width: 600px; max-width: 96vw; box-shadow: 0 10px 40px rgba(0,0,0,.25); }
+    .modal { background: #fff; border-radius: 12px; padding: 22px; width: 600px; max-width: 96vw; box-shadow: 0 10px 40px rgba(0,0,0,.25); position: relative; }
+    .modal-x { position: absolute; top: 10px; right: 12px; width: 30px; height: 30px; border: none; border-radius: 50%; background: #dc2626; color: #fff; font-size: 15px; font-weight: 700; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(220,38,38,.35); }
+    .modal-x:hover { background: #b91c1c; }
     .modal h2 { font-size: 17px; margin-bottom: 6px; color: #1e3a8a; }
     .modal .radio { flex-direction: row; align-items: center; gap: 6px; cursor: pointer; }
     .modal .radio input { accent-color: #2563eb; }
@@ -96,8 +135,10 @@
     <div class="nav-tabs">
         <div class="tab active" data-tab="es" onclick="showTab('es')">Entradas / Salidas</div>
         <div class="tab" data-tab="detalle" onclick="showTab('detalle')">Detalle de marcas</div>
-        <div class="tab" data-tab="dept" onclick="showTab('dept')">Departamentos</div>
-        <div class="tab" data-tab="adduser" onclick="showTab('adduser')">Agregar Usuario</div>
+        <div class="tab" data-tab="retrasos" onclick="showTab('retrasos')">Retrasos</div>
+        <div class="tab" data-tab="horarios" onclick="showTab('horarios')">Horarios</div>
+        <div class="tab" data-tab="dept" onclick="showTab('dept')">Áreas</div>
+
         <div class="tab" data-tab="devices" onclick="showTab('devices')">Dispositivos</div>
     </div>
 
@@ -107,8 +148,11 @@
             <div class="toolbar">
                 <label>Desde <input type="date" id="desde"></label>
                 <label>Hasta <input type="date" id="hasta"></label>
-                <label>Departamento <select id="fDepto" style="min-width:170px"><option value="">Todos</option></select></label>
+                <label>Área <select id="fDepto" style="min-width:170px"><option value="">Todas las áreas</option></select></label>
                 <input type="text" id="buscarEmp" placeholder="Buscar por CI o nombre" style="flex:1;min-width:180px">
+                <label style="display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;font-weight:600;color:#1e3a8a" title="Muestra cada día con las entradas ordenadas del más temprano al más tarde">
+                    <input type="checkbox" id="ordenEntrada" onchange="loadReport()"> Por hora de entrada
+                </label>
                 <button onclick="loadReport()">Consultar</button>
                 <button class="warn" onclick="openExport()">⬇ Exportar reporte</button>
             </div>
@@ -153,17 +197,101 @@
         </div>
     </div>
 
-    <!-- Panel Departamentos -->
+    <!-- Panel Retrasos -->
+    <div class="panel" id="panel-retrasos">
+        <div class="card">
+            <div class="toolbar">
+                <label>Desde <input type="date" id="rDesde"></label>
+                <label>Hasta <input type="date" id="rHasta"></label>
+                <label>Área <select id="rArea" style="min-width:170px"><option value="">Todas las áreas</option></select></label>
+                <input type="text" id="rBuscar" placeholder="Buscar por CI o nombre" style="flex:1;min-width:180px">
+                <button onclick="loadRetrasos()">Consultar</button>
+            </div>
+            <p class="hint">Se listan solo los empleados con atrasos. Haz clic en una fila para ver, debajo, todos los días en que llegó tarde.</p>
+        </div>
+
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+                <h4 style="margin:0;font-size:15px;color:#1e3a8a">Cantidad de atrasos por persona</h4>
+                <button class="warn" onclick="exportRetrasos()">Exportar a Excel</button>
+            </div>
+            <div class="scroll">
+                <table>
+                    <thead>
+                        <tr><th>#</th><th>CI</th><th>Nombre</th><th>Área</th><th>Atrasos</th><th>Total (min)</th></tr>
+                    </thead>
+                    <tbody id="tblRetrasos"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card" id="cardRetrasoDet" style="display:none">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+                <h4 style="margin:0;font-size:15px;color:#1e3a8a">Días con atraso: <span id="detRetrasoNombre"></span></h4>
+                <button class="warn" onclick="exportRetrasoDetalle()">Exportar a Excel</button>
+            </div>
+            <div class="scroll">
+                <table>
+                    <thead>
+                        <tr><th>Fecha</th><th>Hora esperada</th><th>Entrada</th><th>Retraso (min)</th></tr>
+                    </thead>
+                    <tbody id="tblRetrasoDet"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Horarios -->
+    <div class="panel" id="panel-horarios">
+        <div class="card">
+            <p class="hint" style="margin:0 0 14px">Crea horarios (con los días y horas de cada día) y asígnalos a los empleados. Cada empleado puede tener un solo horario.</p>
+
+            <!-- Crear horario -->
+            <div style="margin-bottom:16px;padding:14px;border:2px solid #93c5fd;background:#eff6ff;border-radius:10px">
+                <h4 style="margin:0 0 10px;font-size:15px;color:#1e3a8a">Crear nuevo horario</h4>
+                <div class="toolbar" style="flex-wrap:wrap;gap:10px;margin:0">
+                    <input type="text" id="newSchName" placeholder="Nombre del horario (ej: Administrativo)" style="flex:1;min-width:220px" onkeydown="handleSchNameKey(event)" autocomplete="off">
+                    <button onclick="openScheduleModal()" style="padding:11px 26px;font-size:15px;font-weight:700">Crear horario</button>
+                    <button class="sec" onclick="loadSchedules()">Actualizar</button>
+                </div>
+            </div>
+
+            <!-- Lista de horarios + asignación -->
+            <div style="display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start">
+                <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:400px">
+                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">Horarios</h4>
+                    <div id="schList" style="max-height:420px;overflow:auto"></div>
+                    <div id="schEmpty" style="display:none;color:#9ca3af;font-size:13px;padding:20px;text-align:center">No hay horarios. Crea uno arriba.</div>
+                </div>
+
+                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:400px">
+                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">Asignar empleados al horario</h4>
+                    <div id="schAssignHeader" style="display:none;margin-bottom:10px;padding:8px 12px;background:#eef2ff;border-radius:6px">
+                        <b id="assignSchName"></b>
+                        <div id="assignSchDays" style="font-size:12px;color:#475569;margin-top:4px"></div>
+                    </div>
+                    <div id="schAssignEmpty" style="color:#9ca3af;font-size:13px;padding:20px;text-align:center">Selecciona un horario a la izquierda para asignar empleados</div>
+                    <input type="text" id="assignSchSearch" placeholder="Buscar empleado (nombre o CI)..." style="width:100%;margin-bottom:8px;display:none;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:13px" oninput="renderAssignScheduleList()">
+                    <div id="assignSchList" class="userlist" style="display:none;max-height:300px;overflow:auto"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Áreas -->
     <div class="panel" id="panel-dept">
         <div class="card">
             <p class="hint" style="margin:0 0 14px">Gestiona tus áreas y asigna empleados a cada una.</p>
             
-            <!-- Crear/Editar área -->
-            <div class="toolbar" style="margin-bottom:14px;flex-wrap:wrap;gap:10px">
-                <input type="text" id="newDeptName" placeholder="Nombre del área (ej: Mantenimiento)" style="flex:1;min-width:200px" oninput="autoGenDeptCode(this)" onkeydown="handleDeptNameKey(event)" autocomplete="off">
-                <input type="text" id="newDeptCode" placeholder="Código (ej: MAN1)" style="width:140px;text-transform:uppercase" autocomplete="off">
-                <button onclick="createDept()">➕ Crear área</button>
-                <button class="sec" onclick="loadDepartments()">🔄 Actualizar</button>
+            <!-- Crear área -->
+            <div style="margin-bottom:16px;padding:14px;border:2px solid #93c5fd;background:#eff6ff;border-radius:10px">
+                <h4 style="margin:0 0 10px;font-size:15px;color:#1e3a8a">Crear nueva área</h4>
+                <div class="toolbar" style="flex-wrap:wrap;gap:10px;margin:0">
+                    <input type="text" id="newDeptName" placeholder="Nombre del área (ej: Mantenimiento)" style="flex:1;min-width:200px" onkeydown="handleDeptNameKey(event)" autocomplete="off">
+                    <input type="text" id="newDeptCode" placeholder="Código (ej: MAN1)" style="width:150px;text-transform:uppercase" autocomplete="off">
+                    <button onclick="createDept()" style="padding:11px 26px;font-size:15px;font-weight:700">Crear área</button>
+                    <button class="sec" onclick="loadDepartments()">Actualizar</button>
+                </div>
             </div>
 
             <!-- Vista principal: lista de áreas a la izquierda, asignación a la derecha -->
@@ -171,16 +299,16 @@
                 
                 <!-- Columna izquierda: Lista de áreas -->
                 <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:400px">
-                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">📋 Áreas</h4>
+                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">Áreas</h4>
                     <div id="deptList" style="max-height:350px;overflow:auto"></div>
                     <div id="deptEmpty" style="display:none;color:#9ca3af;font-size:13px;padding:20px;text-align:center">
-                        No hay áreas. Crea una arriba ⬆
+                        No hay áreas. Crea una arriba.
                     </div>
                 </div>
 
                 <!-- Columna derecha: Asignar usuarios al área seleccionada -->
                 <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:400px">
-                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">👥 Asignar empleados</h4>
+                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">Asignar usuarios al área</h4>
                     <div id="deptAssignHeader" style="display:none;margin-bottom:10px;padding:8px 12px;background:#eef2ff;border-radius:6px">
                         <b id="assignDeptName"></b> <span style="color:#6b7280;font-weight:normal" id="assignDeptCode"></span>
                     </div>
@@ -194,32 +322,7 @@
         </div>
     </div>
 
-    <!-- Panel Agregar Usuario -->
-    <div class="panel" id="panel-adduser">
-        <div class="card">
-            <h3 style="margin:0 0 16px;font-size:16px;color:#1e3a8a">Agregar Usuario al Biométrico K40 Pro</h3>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:600px">
-                <label>ID / CI
-                    <input type="text" id="addUserId" placeholder="Ej: 1234567" style="text-transform:uppercase">
-                </label>
-                <label>Apellido Paterno
-                    <input type="text" id="addUserApe" placeholder="Ej: PEREZ" style="text-transform:uppercase" oninput="this.value = this.value.toUpperCase()">
-                </label>
-                <label>Nombres
-                    <input type="text" id="addUserNom" placeholder="Ej: JUAN CARLOS" style="text-transform:uppercase" oninput="this.value = this.value.toUpperCase()">
-                </label>
-                <label>Departamento / Área (opcional)
-                    <select id="addUserDept" style="min-width:170px">
-                        <option value="">Sin área</option>
-                    </select>
-                </label>
-            </div>
-            <div style="margin-top:16px">
-                <button class="sec" onclick="addUserToBiometrico()">➕ Agregar al biométrico</button>
-            </div>
-            <p class="hint" style="margin-top:12px">El nombre completo (Nombre + Apellido Paterno) se enviará al K40 Pro en el campo Nombre, separados por espacio. Todo en MAYÚSCULAS.</p>
-        </div>
-    </div>
+
 
     <!-- Panel Dispositivos -->
     <div class="panel" id="panel-devices">
@@ -245,7 +348,9 @@
 <div class="modal-mask" id="modalExport">
         <div class="modal">
             <h2>Exportar reporte</h2>
-            <p class="hint" style="margin:0 0 16px">Período: <b><span id="expRango"></span></b></p>
+            <p class="hint" style="margin:0 0 6px">Período: <b><span id="expRango"></span></b></p>
+            <p class="hint" style="margin:0 0 6px">Se exportan <b>todos los empleados</b> <span id="expAreaFrase">de todas las áreas</span>.</p>
+            <p class="hint" id="expBuscaWrap" style="margin:0 0 6px;display:none">Búsqueda: <b><span id="expBusca"></span></b></p>
 
             <div style="margin-bottom:16px">
                 <div style="font-size:12px;color:#6b7280;margin-bottom:6px">Formato</div>
@@ -256,21 +361,40 @@
                 </div>
             </div>
 
-            <div style="margin-bottom:12px">
-                <div style="font-size:12px;color:#6b7280;margin-bottom:6px">Empleados</div>
-                <label class="radio" style="margin-bottom:6px"><input type="radio" name="alg" value="todos" checked onchange="toggleExpSelect()"> Todos los empleados</label>
-                <label class="radio"><input type="radio" name="alg" value="sel" onchange="toggleExpSelect()"> Seleccionar empleado(s)...</label>
-            </div>
-
-            <div id="expSel" style="display:none">
-                <input type="text" id="expBuscar" placeholder="Filtrar por nombre o N°..." style="width:100%">
-                <div class="userlist" id="expUserList"></div>
-            </div>
-
             <div class="toolbar" style="justify-content:flex-end;margin-top:18px">
                 <button onclick="closeExport()">Cancelar</button>
                 <button class="sec" onclick="doExport()">Descargar</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Horario -->
+<div class="modal-mask" id="modalHorario">
+    <div class="modal" style="width:780px;max-height:92vh;overflow:auto">
+        <button type="button" class="modal-x" title="Cerrar" aria-label="Cerrar" onclick="closeScheduleModal()">✕</button>
+        <h2 id="schModalTitle">Nuevo horario</h2>
+        <div id="schModalMsg" class="msg" style="margin-bottom:10px"></div>
+        <label style="margin-bottom:12px;display:block">Nombre
+            <input type="text" id="schName" placeholder="Ej: Administrativo" style="width:100%">
+        </label>
+
+        <div class="toolbar" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">
+            <button type="button" class="sec" style="background:#0ea5e9" onclick="applyMondayToAll()" title="Copia el horario del lunes a todos los días restantes">⬇ Aplicar lunes a todos</button>
+            <span class="sched-combo" id="schCombo">
+                <input type="text" id="schPlantillaSearch" placeholder="🔎 Buscar plantilla base…" autocomplete="off"
+                       oninput="onPlantillaInput()" onfocus="renderPlantillaDropdown()" onkeydown="plantillaKey(event)">
+                <div class="sched-combo-list" id="schPlantillaList"></div>
+            </span>
+            <button type="button" onclick="applyTemplate()" title="Copia los días y horas de otro horario existente como base">Usar plantilla</button>
+        </div>
+
+        <div id="schDaysBody"></div>
+
+        <p class="hint">Haz clic o arrastra dentro de la barra de 24 h para fijar la hora de <b>inicio</b> y <b>fin</b>. Si el fin es anterior al inicio, el horario es <b>nocturno</b> (termina al día siguiente). Los atrasos se calculan con <b>1 minuto</b> de tolerancia: si el horario inicia 08:30, hasta 08:30:59 se considera normal.</p>
+        <div class="toolbar" style="justify-content:flex-end;margin-top:16px">
+            <button onclick="closeScheduleModal()">Cancelar</button>
+            <button class="sec" onclick="saveSchedule()">Guardar</button>
         </div>
     </div>
 </div>
@@ -298,7 +422,7 @@ async function syncDevice() {
         const j = await r.json();
         if (j.success && j.results) {
             const detalle = j.results.map(x => x.success
-                ? `${x.device.ip}: ${x.records} marcas${x.incremental ? ' (incremental)' : ''}${x.conDepartamento ? `, ${x.conDepartamento} con depto.` : ''}`
+                ? `${x.device.ip}: ${x.records} marcas${x.incremental ? ' (incremental)' : ''}${x.conArea ? `, ${x.conArea} con área` : ''}`
                 : `${x.device.ip}: falló (${x.error})`).join(' — ');
             msg('✅ ' + j.message + ' | ' + detalle, 'ok');
             loadUsers(); loadDepartments(); loadReport(); loadDevices();
@@ -318,8 +442,8 @@ async function syncOne(ip) {
         const j = await r.json();
         if (j.success) {
             msg(`✅ ${j.device.ip}: ${j.users} usuarios, ${j.records} registros de marca`
-                + (j.conDepartamento ? `, ${j.conDepartamento} con área` : '')
-                + (j.departamentos ? `. Asigna el nombre de ${j.departamentos} código(s) en la pestaña Áreas.` : '.'), 'ok');
+                + (j.conArea ? `, ${j.conArea} con área` : '')
+                + (j.areasSinNombre ? `. Asigna el nombre de ${j.areasSinNombre} código(s) en la pestaña Áreas.` : '.'), 'ok');
             loadUsers(); loadDepartments(); loadReport(); loadDevices();
         } else {
             msg('❌ ' + ip + ': ' + j.error, 'err');
@@ -389,28 +513,24 @@ async function loadUsers() {
     ALL_USERS = await r.json();
 }
 
-function renderExpList() {
-    const q = (document.getElementById('expBuscar').value || '').trim().toLowerCase();
-    const list = ALL_USERS.filter(u =>
-        !q ||
-        (u.name || '').toLowerCase().includes(q) ||
-        String(u.user_id).toLowerCase().includes(q));
-    document.getElementById('expUserList').innerHTML = list.map(u =>
-        `<label class="ui"><input type="checkbox" class="ck" value="${esc(u.user_id)}"><span><b>${esc(vist(u.name))}</b> <span style="color:#9ca3af;font-size:12px">(${esc(u.user_id)})</span></span></label>`
-    ).join('') || '<div class="empty">Sin resultados</div>';
-}
-
-function toggleExpSelect() {
-    const alg = document.querySelector('input[name=alg]:checked').value;
-    document.getElementById('expSel').style.display = (alg === 'sel') ? 'block' : 'none';
-}
-
 function openExport() {
     const { desde, hasta } = fechaRange();
     document.getElementById('expRango').textContent = `${desde} → ${hasta}`;
-    document.querySelector('input[name=alg][value=todos]').checked = true;
-    toggleExpSelect();
-    renderExpList();
+
+    // Mostrar claramente el área que se va a exportar (dentro de la frase, sin repetir).
+    const selArea = document.getElementById('fDepto');
+    const areaTxt = (selArea.selectedIndex >= 0 ? selArea.options[selArea.selectedIndex].textContent : '').trim();
+    let frase;
+    if (!selArea.value) frase = 'de todas las áreas';
+    else if (selArea.value === 'sin') frase = 'sin área asignada';
+    else frase = `del área "${areaTxt}"`;
+    document.getElementById('expAreaFrase').textContent = frase;
+
+    // Y la búsqueda, si hubiera.
+    const q = document.getElementById('buscarEmp').value.trim();
+    document.getElementById('expBuscaWrap').style.display = q ? '' : 'none';
+    document.getElementById('expBusca').textContent = q;
+
     document.getElementById('modalExport').classList.add('open');
 }
 
@@ -420,20 +540,14 @@ function closeExport() {
 
 function doExport() {
     const fmt = document.querySelector('input[name=fmt]:checked').value;
-    const alg = document.querySelector('input[name=alg]:checked').value;
     const { desde, hasta } = fechaRange();
     const q = document.getElementById('buscarEmp').value.trim();
     const depto = document.getElementById('fDepto').value;
-    const ids = [...document.querySelectorAll('#expUserList .ck:checked')].map(c => c.value);
 
     let url = `/api/export/${fmt}?desde=${desde}&hasta=${hasta}`;
-    if (depto) url += '&departamento=' + encodeURIComponent(depto);
-    if (alg === 'sel') {
-        if (ids.length === 0) { alert('Marca al menos un empleado o elige "Todos los empleados".'); return; }
-        url += '&users=' + encodeURIComponent(ids.join(','));
-    } else if (q) {
-        url += '&q=' + encodeURIComponent(q);
-    }
+    if (depto) url += '&area=' + encodeURIComponent(depto);
+    if (document.getElementById('ordenEntrada').checked) url += '&orden=entrada';
+    if (q) url += '&q=' + encodeURIComponent(q);
     window.location.href = url;
     closeExport();
 }
@@ -442,16 +556,18 @@ async function loadReport() {
     const { desde, hasta } = fechaRange();
     const q = document.getElementById('buscarEmp').value.trim();
     const depto = document.getElementById('fDepto').value;
+    const porEntrada = document.getElementById('ordenEntrada').checked;
     const qs = new URLSearchParams({ desde, hasta });
     if (q) qs.set('q', q);
-    if (depto) qs.set('departamento', depto);
+    if (depto) qs.set('area', depto);
+    if (porEntrada) qs.set('orden', 'entrada');
     const r = await fetch('/api/summary?' + qs);
     const j = await r.json();
 
     const rows = j.records;
     const detallado = !!q;
     const fmtDate = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
-    // Columnas visibles: Fecha, CI, Nombre, Departamento, Entrada, Salida, [Marc.]
+    // Columnas visibles: Fecha, CI, Nombre, Área, Entrada, Salida, [Marc.]
     const colCount = 7 + (detallado ? 1 : 0);
     document.querySelector('.colFecha').style.display = '';
     document.querySelector('.colMarc').style.display = detallado ? '' : 'none';
@@ -463,16 +579,22 @@ async function loadReport() {
         const fila = porFechas[f].map(rec => {
             const entrada = (rec.entrada || '').slice(11, 19);
             const salida  = (rec.salida || '').slice(11, 19);
+            const atraso = !!rec.atraso;
             const marca = rec.inferida
                 ? ' title="Día sin entrada marcada: la primera salida se tomó como entrada y la última como salida"'
+                : '';
+            // Atraso: la entrada supera la hora del horario (+ tolerancia). Se
+            // resalta en rojo pastel con el detalle en el tooltip.
+            const lateAttr = atraso
+                ? ` class="late" title="Atraso: debía entrar ${esc(rec.hora_esperada)} (${rec.retraso_min} min)"`
                 : '';
             // Primera celda vacía para la columna Fecha (sticky). La fecha se ve en la dateRow.
             const celdas = `
                 <td></td>
                 <td>${esc(rec.user_id)}</td>
                 <td${marca}>${esc(vist(rec.name))}</td>
-                <td>${rec.departamento ? esc(rec.departamento) : '<span style="color:#9ca3af">—</span>'}</td>
-                <td>${entrada ? '<b>' + esc(entrada) + '</b>' : '<span class="missing">—</span>'}</td>
+                <td>${rec.area ? esc(rec.area) : '<span style="color:#9ca3af">—</span>'}</td>
+                <td${lateAttr}>${entrada ? '<b>' + esc(entrada) + '</b>' : '<span class="missing">—</span>'}</td>
                 <td>${salida ? '<b>' + esc(salida) + '</b>' : '<span class="missing">—</span>'}`;
             return `<tr>${celdas}${detallado ? `<td><span class="badge ${rec.marcaciones > 1 ? 'ok' : 'no'}">${rec.marcaciones}</span></td>` : ''}</tr>`;
         }).join('');
@@ -503,7 +625,7 @@ async function loadDetail() {
             <td>${i + 1}</td>
             <td>${esc(u.user_id)}</td>
             <td>${esc(vist(u.name))}</td>
-            <td>${u.departamento ? esc(u.departamento) : '<span style="color:#9ca3af">—</span>'}</td>
+            <td>${u.area ? esc(u.area) : '<span style="color:#9ca3af">—</span>'}</td>
             <td>${u.marcaciones ? '<span class="badge ok">' + u.marcaciones + '</span>' : '<span class="badge no">0</span>'}</td>
         </tr>
         <tr class="mrow" id="mrow-${i}" style="display:none"><td colspan="5"><div class="marks">Cargando...</div></td></tr>`
@@ -511,31 +633,30 @@ async function loadDetail() {
 }
 
 // ------------------------------------------------------------------
-//  Departamentos / areas
+//  Areas
 // ------------------------------------------------------------------
 let ALL_DEPTS = [];
 
 async function loadDepartments() {
-    const r = await fetch('/api/departments');
+    const r = await fetch('/api/areas');
     ALL_DEPTS = await r.json();
 
     // Filtro del reporte (conserva la selección actual).
     const sel = document.getElementById('fDepto');
     const actual = sel.value;
     sel.innerHTML = '<option value="">Todas las áreas</option>'
-        + ALL_DEPTS.map(d => `<option value="${esc(d.codigo)}">${esc(d.nombre)} (${esc(d.codigo)})</option>`).join('')
+        + ALL_DEPTS.map(d => `<option value="${esc(d.codigo)}">${esc(d.nombre)}</option>`).join('')
         + '<option value="sin">Sin área</option>';
     sel.value = actual;
 
-    // Actualizar select para agregar usuario
-    const addDeptSel = document.getElementById('addUserDept');
-    if (addDeptSel) {
-        const actualAdd = addDeptSel.value;
-        addDeptSel.innerHTML = '<option value="">Sin área</option>'
-            + ALL_DEPTS.map(d => `<option value="${esc(d.codigo)}">${esc(d.nombre)} (${esc(d.codigo)})</option>`).join('');
-        if (actualAdd && ALL_DEPTS.some(d => d.codigo === actualAdd)) {
-            addDeptSel.value = actualAdd;
-        }
+    // Filtro del reporte de atrasos (mismo listado de áreas).
+    const selR = document.getElementById('rArea');
+    if (selR) {
+        const actualR = selR.value;
+        selR.innerHTML = '<option value="">Todas las áreas</option>'
+            + ALL_DEPTS.map(d => `<option value="${esc(d.codigo)}">${esc(d.nombre)}</option>`).join('')
+            + '<option value="sin">Sin área</option>';
+        selR.value = actualR;
     }
 
     // Renderizar lista de áreas en la nueva UI
@@ -562,8 +683,11 @@ function renderDeptList() {
                 <span style="font-size:11px;color:#6b7280;background:#e5e7eb;padding:2px 6px;border-radius:4px">${esc(d.codigo)}</span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:12px">
-                <span style="color:#6b7280">${d.empleados || 0} empleados</span>
-                <button onclick="event.stopPropagation(); editDept('${esc(d.codigo)}')" style="padding:2px 8px;font-size:11px;background:#2563eb;color:#fff;border:none;border-radius:4px">Editar</button>
+                <span style="color:#6b7280">${d.empleados || 0} usuarios</span>
+                <span style="display:flex;gap:4px">
+                    <button onclick="event.stopPropagation(); editDept('${esc(d.codigo)}')" style="padding:2px 8px;font-size:11px;background:#2563eb;color:#fff;border:none;border-radius:4px">Editar</button>
+                    <button onclick="event.stopPropagation(); delDept('${esc(d.codigo)}')" style="padding:2px 8px;font-size:11px;background:#dc2626;color:#fff;border:none;border-radius:4px">Eliminar</button>
+                </span>
             </div>
         </div>
     `).join('');
@@ -602,30 +726,34 @@ function renderAssignUserList() {
         return;
     }
     
-    // Obtener usuarios que YA están en este departamento
-    const assigned = new Set();
-    // We need to fetch current assignments - for now use ALL_DEPTS data
-    // But we need actual user data. Let's fetch /api/users
-    
+    // Obtener usuarios que YA están en esta área
     fetch('/api/users')
         .then(r => r.json())
         .then(users => {
-            const filtered = users.filter(u => {
-                const match = !search || 
-                    (u.name && u.name.toLowerCase().includes(search)) ||
-                    String(u.user_id).includes(search);
-                return match;
-            });
-            
+            const filtered = users
+                .filter(u => {
+                    const match = !search ||
+                        (u.name && u.name.toLowerCase().includes(search)) ||
+                        String(u.user_id).includes(search);
+                    return match;
+                })
+                // Los que ya pertenecen al área seleccionada van primero.
+                .sort((a, b) => {
+                    const ra = a.area_codigo === selectedDeptCode ? 0 : 1;
+                    const rb = b.area_codigo === selectedDeptCode ? 0 : 1;
+                    if (ra !== rb) return ra - rb;
+                    return String(a.name || '').localeCompare(String(b.name || ''), 'es');
+                });
+
             listEl.innerHTML = filtered.map(u => {
-                const isAssigned = u.departamento_codigo === selectedDeptCode;
+                const isAssigned = u.area_codigo === selectedDeptCode;
                 return `
-                    <label class="ui" style="padding:8px 10px;cursor:pointer">
+                    <label class="ui" style="padding:8px 10px;cursor:pointer;border-radius:6px;background:${isAssigned ? '#dbeafe' : '#fff'};border:1px solid ${isAssigned ? '#93c5fd' : '#e5e7eb'}">
                         <input type="checkbox" class="ck" value="${esc(u.user_id)}" ${isAssigned ? 'checked' : ''} 
-                               onchange="toggleUserDept('${esc(u.user_id)}', this.checked)">
+                               onchange="toggleUserArea('${esc(u.user_id)}', this.checked)">
                         <span style="display:flex;flex-direction:column;gap:2px">
                             <b style="font-size:13px">${esc(vist(u.name))}</b>
-                            <span style="font-size:11px;color:#6b7280">${esc(u.user_id)}${u.departamento ? ' • ' + esc(u.departamento) : ''}</span>
+                            <span style="font-size:11px;color:#6b7280">${esc(u.user_id)}${u.area ? ' • ' + esc(u.area) : ''}</span>
                         </span>
                     </label>
                 `;
@@ -633,18 +761,30 @@ function renderAssignUserList() {
         });
 }
 
-async function toggleUserDept(userId, assigned) {
+async function toggleUserArea(userId, assigned) {
     if (!selectedDeptCode) return;
-    
+
+    // Nombre para el mensaje de retroalimentación (lo tomamos de la lista).
+    const sel = '#assignUserList input.ck[value="' + String(userId).replace(/["\\]/g, '\\$&') + '"]';
+    const ck = document.querySelector(sel);
+    const nombre = (ck && ck.closest('label') && ck.closest('label').querySelector('b'))
+        ? ck.closest('label').querySelector('b').textContent
+        : ('N° ' + userId);
+    const areaNombre = (ALL_DEPTS.find(d => d.codigo === selectedDeptCode) || {}).nombre || selectedDeptCode;
+
     try {
-        const r = await fetch('/api/users/' + encodeURIComponent(userId) + '/department', {
+        const r = await fetch('/api/users/' + encodeURIComponent(userId) + '/area', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ department: assigned ? selectedDeptCode : '' })
+            body: JSON.stringify({ area: assigned ? selectedDeptCode : '' })
         });
         const j = await r.json();
         if (!j.success) throw new Error(j.error || 'Error');
-        
+
+        msg(assigned
+            ? `✅ ${nombre} se asignó al área "${areaNombre}"`
+            : `✅ ${nombre} se quitó del área "${areaNombre}"`, 'ok');
+
         // Actualizar contador visual
         await loadDepartments();
         // Re-renderizar lista manteniendo búsqueda
@@ -660,57 +800,30 @@ async function filterAssignUsers() {
     renderAssignUserList();
 }
 
-// Genera código automático: 3 primeras letras del nombre + contador
-function autoGenDeptCode(input) {
-    const name = input.value.trim();
-    const codeInput = document.getElementById('newDeptCode');
-    
-    if (!name) {
-        codeInput.value = '';
-        return;
-    }
-    
-    // Tomar 3 primeras letras, solo letras, mayúsculas
-    const base = name.replace(/[^a-zA-ZÁÉÍÓÚÜÑáéíóúüñ]/g, '').substring(0, 3).toUpperCase();
-    if (!base) {
-        codeInput.value = '';
-        return;
-    }
-    
-    // Buscar el máximo contador para ese prefijo
-    let maxNum = 0;
-    for (const d of ALL_DEPTS) {
-        const match = d.codigo.match(new RegExp('^' + base + '(\\d+)$'));
-        if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
-    }
-    
-    codeInput.value = base + (maxNum + 1);
-}
-
 // Enter en nombre = crear área
 function handleDeptNameKey(e) {
     if (e.key === 'Enter') {
         e.preventDefault();
-        const code = document.getElementById('newDeptCode').value.trim();
-        const name = document.getElementById('newDeptName').value.trim();
-        if (code && name) createDept();
+        createDept();
     }
 }
 
 async function createDept() {
-    const code = document.getElementById('newDeptCode').value.trim().toUpperCase();
-    const name = document.getElementById('newDeptName').value.trim();
-    if (!code || !name) { msg('Código y nombre son obligatorios', 'err'); return; }
+    const nameEl = document.getElementById('newDeptName');
+    const codeEl = document.getElementById('newDeptCode');
+    const name = nameEl.value.trim();
+    const code = codeEl.value.trim().toUpperCase();
+    if (!name || !code) { msg('Escribe el nombre y el código del área', 'err'); return; }
     
     try {
-        const r = await fetch('/api/departments', {
+        const r = await fetch('/api/areas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code, name })
         });
         const j = await r.json();
         if (!j.success) throw new Error(j.error || 'Error');
-        msg(`✅ Área "${name}" creada`, 'ok');
+        msg(`✅ Área "${name}" (código ${code}) creada`, 'ok');
         document.getElementById('newDeptCode').value = '';
         document.getElementById('newDeptName').value = '';
         await loadDepartments();
@@ -727,14 +840,14 @@ async function editDept(code) {
     if (!newName || newName === dept.nombre) return;
     
     try {
-        const r = await fetch('/api/departments', {
+        const r = await fetch('/api/areas', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code, name: newName.trim() })
         });
         const j = await r.json();
         if (!j.success) throw new Error(j.error || 'Error');
-        msg(`✅ Área actualizada`, 'ok');
+        msg(`✅ Área renombrada a "${newName.trim()}"`, 'ok');
         await loadDepartments();
     } catch (e) {
         msg('❌ ' + e.message, 'err');
@@ -744,7 +857,7 @@ async function editDept(code) {
 async function delDept(code) {
     if (!confirm('¿Eliminar el área? Los usuarios asignados quedarán sin área.')) return;
     try {
-        await fetch('/api/departments/' + encodeURIComponent(code), { method: 'DELETE' });
+        await fetch('/api/areas/' + encodeURIComponent(code), { method: 'DELETE' });
         msg('Área eliminada', 'ok');
         selectedDeptCode = null;
         await loadDepartments();
@@ -812,43 +925,7 @@ async function setDevicePassword(id, ip) {
     loadDevices();
 }
 
-async function addUserToBiometrico() {
-    const user_id = document.getElementById('addUserId').value.trim().toUpperCase();
-    const nombre = document.getElementById('addUserNom').value.trim().toUpperCase();
-    const apellido_paterno = document.getElementById('addUserApe').value.trim().toUpperCase();
-    const departamento = document.getElementById('addUserDept').value;
-    
-    if (!user_id || !nombre || !apellido_paterno) {
-        msg('ID, Nombres y Apellido Paterno son obligatorios', 'err');
-        return;
-    }
-    
-    msg('Agregando usuario...', 'ok');
-    try {
-        const r = await fetch('/api/users/zkteco/add', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id, nombre, apellido_paterno, departamento: departamento || null })
-        });
-        const j = await r.json();
-        if (j.success) {
-            if (j.warning) {
-                msg(`⚠ ${j.warning}`, 'err');
-            } else {
-                msg(`✅ ${j.message} - ${j.nombre}`, 'ok');
-            }
-            document.getElementById('addUserId').value = '';
-            document.getElementById('addUserNom').value = '';
-            document.getElementById('addUserApe').value = '';
-            document.getElementById('addUserDept').value = '';
-            loadUsers();
-        } else {
-            msg('❌ ' + j.error, 'err');
-        }
-    } catch (e) {
-        msg('❌ No se pudo agregar: ' + e.message, 'err');
-    }
-}
+
 
 async function loadDevices() {
     const r = await fetch('/api/devices');
@@ -879,21 +956,633 @@ function vist(s) {
     return String(s ?? '').replace(/;/g, ' ').replace(/[Ññ]/g, 'N').replace(/\uFFFD/g, 'N').replace(/\s+/g, ' ').trim();
 }
 
+// ------------------------------------------------------------------
+//  Horarios
+// ------------------------------------------------------------------
+const DIAS = { 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado', 7: 'Domingo' };
+let ALL_SCHEDULES = [];
+let selectedScheduleId = null;
+let editingScheduleId = null;
+
+async function loadSchedules() {
+    try {
+        const r = await fetch('/api/schedules');
+        ALL_SCHEDULES = await r.json();
+    } catch (e) { ALL_SCHEDULES = []; }
+    renderSchList();
+}
+
+// Resumen legible de los dias de un horario.
+function schDaysText(s) {
+    const parts = [];
+    for (let d = 1; d <= 7; d++) {
+        const day = (s.days || []).find(x => Number(x.weekday) === d);
+        if (day) {
+            const over = String(day.end).slice(0, 5) <= String(day.start).slice(0, 5);
+            parts.push(`${DIAS[d].slice(0, 3)} ${String(day.start).slice(0, 5)}-${String(day.end).slice(0, 5)}${over ? ' (+1d)' : ''}`);
+        }
+    }
+    return parts.length ? parts.join(' · ') : 'Sin días configurados';
+}
+
+function renderSchList() {
+    const el = document.getElementById('schList');
+    const emptyEl = document.getElementById('schEmpty');
+    if (!ALL_SCHEDULES.length) { el.innerHTML = ''; emptyEl.style.display = 'block'; resetAssignSchedulePanel(); return; }
+    emptyEl.style.display = 'none';
+    el.innerHTML = ALL_SCHEDULES.map(s => `
+        <div class="sch-item" data-id="${s.id}" onclick="selectSchedule(${s.id})">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+                <span style="font-weight:600;color:#1e3a8a;font-size:14px">${esc(s.name)}</span>
+                <span style="font-size:11px;color:#6b7280;background:#e5e7eb;padding:2px 6px;border-radius:4px;white-space:nowrap">${s.empleados} empleados</span>
+            </div>
+            <div style="font-size:11px;color:#6b7280;margin-top:4px">${esc(schDaysText(s))}</div>
+            <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px">
+                <button onclick="event.stopPropagation(); openScheduleModal(${s.id})" style="padding:2px 8px;font-size:11px;background:#2563eb;color:#fff;border:none;border-radius:4px">Editar</button>
+                <button onclick="event.stopPropagation(); delSchedule(${s.id})" style="padding:2px 8px;font-size:11px;background:#dc2626;color:#fff;border:none;border-radius:4px">Eliminar</button>
+            </div>
+        </div>`).join('');
+    document.querySelectorAll('.sch-item').forEach(item => {
+        const on = Number(item.dataset.id) === selectedScheduleId;
+        item.style.borderColor = on ? '#2563eb' : 'transparent';
+        item.style.background = on ? '#eff6ff' : '#fff';
+    });
+}
+
+function resetAssignSchedulePanel() {
+    document.getElementById('schAssignHeader').style.display = 'none';
+    document.getElementById('schAssignEmpty').style.display = 'block';
+    document.getElementById('assignSchSearch').style.display = 'none';
+    document.getElementById('assignSchList').style.display = 'none';
+    document.getElementById('assignSchList').innerHTML = '';
+}
+
+function selectSchedule(id) {
+    const s = ALL_SCHEDULES.find(x => x.id === id);
+    if (!s) return;
+    selectedScheduleId = id;
+    document.querySelectorAll('.sch-item').forEach(item => {
+        const on = Number(item.dataset.id) === id;
+        item.style.borderColor = on ? '#2563eb' : 'transparent';
+        item.style.background = on ? '#eff6ff' : '#fff';
+    });
+    document.getElementById('schAssignHeader').style.display = 'block';
+    document.getElementById('schAssignEmpty').style.display = 'none';
+    document.getElementById('assignSchSearch').style.display = 'block';
+    document.getElementById('assignSchList').style.display = 'block';
+    document.getElementById('assignSchName').textContent = s.name;
+    document.getElementById('assignSchDays').textContent = schDaysText(s);
+    document.getElementById('assignSchSearch').value = '';
+    renderAssignScheduleList();
+}
+
+function renderAssignScheduleList() {
+    const search = (document.getElementById('assignSchSearch').value || '').toLowerCase();
+    const listEl = document.getElementById('assignSchList');
+    if (!selectedScheduleId) { listEl.innerHTML = ''; return; }
+    fetch('/api/users')
+        .then(r => r.json())
+        .then(users => {
+            const filtered = users
+                .filter(u => !search
+                    || (u.name && u.name.toLowerCase().includes(search))
+                    || String(u.user_id).includes(search))
+                .sort((a, b) => {
+                    const ra = a.schedule_id === selectedScheduleId ? 0 : 1;
+                    const rb = b.schedule_id === selectedScheduleId ? 0 : 1;
+                    if (ra !== rb) return ra - rb;
+                    return String(a.name || '').localeCompare(String(b.name || ''), 'es');
+                });
+
+            listEl.innerHTML = filtered.map(u => {
+                const isAssigned = u.schedule_id === selectedScheduleId;
+                const otro = (u.schedule && !isAssigned) ? ' · horario: ' + esc(u.schedule) : '';
+                return `
+                    <label class="ui" style="padding:8px 10px;cursor:pointer;border-radius:6px;background:${isAssigned ? '#dbeafe' : '#fff'};border:1px solid ${isAssigned ? '#93c5fd' : '#e5e7eb'}">
+                        <input type="checkbox" class="ck" value="${esc(u.user_id)}" ${isAssigned ? 'checked' : ''}
+                               onchange="toggleUserSchedule('${esc(u.user_id)}', this.checked)">
+                        <span style="display:flex;flex-direction:column;gap:2px">
+                            <b style="font-size:13px">${esc(vist(u.name))}</b>
+                            <span style="font-size:11px;color:#6b7280">${esc(u.user_id)}${u.area ? ' • ' + esc(u.area) : ''}${otro}</span>
+                        </span>
+                    </label>`;
+            }).join('') || '<div class="empty" style="padding:14px;text-align:center;color:#9ca3af">Sin empleados</div>';
+        });
+}
+
+async function toggleUserSchedule(userId, assigned) {
+    if (!selectedScheduleId) return;
+    const sel = '#assignSchList input.ck[value="' + String(userId).replace(/["\\]/g, '\\$&') + '"]';
+    const ck = document.querySelector(sel);
+    const nombre = (ck && ck.closest('label') && ck.closest('label').querySelector('b'))
+        ? ck.closest('label').querySelector('b').textContent
+        : ('N° ' + userId);
+    const schNombre = (ALL_SCHEDULES.find(s => s.id === selectedScheduleId) || {}).name || '';
+
+    try {
+        const r = await fetch('/api/users/' + encodeURIComponent(userId) + '/schedule', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ schedule_id: assigned ? selectedScheduleId : '' })
+        });
+        const j = await r.json();
+        if (!j.success) throw new Error(j.error || 'Error');
+
+        msg(assigned
+            ? `✅ ${nombre} se asignó al horario "${schNombre}"`
+            : `✅ ${nombre} se quitó del horario "${schNombre}"`, 'ok');
+
+        await loadSchedules();
+        renderAssignScheduleList();
+    } catch (e) {
+        msg('❌ ' + e.message, 'err');
+        renderAssignScheduleList();
+    }
+}
+
+// ------------------------------------------------------------------
+//  Editor de días: barra de 24 h por día (mouse/touch)
+// ------------------------------------------------------------------
+let schDayState = {};
+let schDragDay = null, schDragMode = null, schDragGrabMin = 0, schDragOrig = null;
+
+function hhmmToMin(t) {
+    const p = String(t || '').split(':').map(Number);
+    return ((p[0] || 0) * 60) + (p[1] || 0);
+}
+
+function minToHHMM(m) {
+    m = ((Math.round(m) % 1440) + 1440) % 1440;
+    return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+}
+
+function initSchDayState(days) {
+    const byDay = {};
+    (days || []).forEach(d => { byDay[Number(d.weekday)] = d; });
+    schDayState = {};
+    for (let d = 1; d <= 7; d++) {
+        const dd = byDay[d];
+        schDayState[d] = {
+            on: !!dd,
+            start: dd ? hhmmToMin(dd.start) : 480,   // 08:00
+            end: dd ? hhmmToMin(dd.end) : 1020,      // 17:00
+        };
+    }
+}
+
+function schMsg(text, type) {
+    const el = document.getElementById('schModalMsg');
+    if (!el) return;
+    el.className = 'msg ' + (type || '');
+    el.textContent = text || '';
+}
+
+function buildSchDayRows() {
+    document.getElementById('schDaysBody').innerHTML = [1, 2, 3, 4, 5, 6, 7].map(d => `
+        <div class="daycard">
+            <div class="dayrow">
+                <label class="dname">
+                    <input type="checkbox" class="schDayOn" data-day="${d}" ${schDayState[d].on ? 'checked' : ''} onchange="onDayToggle(${d})">
+                    ${DIAS[d]}
+                </label>
+                <input type="time" class="schDayStart" data-day="${d}" value="${minToHHMM(schDayState[d].start)}" onchange="onDayTimeInput(${d})">
+                <span class="sep">→</span>
+                <input type="time" class="schDayEnd" data-day="${d}" value="${minToHHMM(schDayState[d].end)}" onchange="onDayTimeInput(${d})">
+                <span class="dur" id="dur-${d}"></span>
+            </div>
+            <div class="daybar" data-day="${d}" onpointerdown="onDayBarDown(event, ${d})">
+                <div class="daybar-grid">${'<span></span>'.repeat(24)}</div>
+                <div class="daybar-sel sel-a"></div>
+                <div class="daybar-sel sel-b"></div>
+                <div class="daybar-handle h-start"></div>
+                <div class="daybar-handle h-end"></div>
+            </div>
+            <div class="daybar-labels"><span>00</span><span>06</span><span>12</span><span>18</span><span>24</span></div>
+        </div>`).join('');
+    for (let d = 1; d <= 7; d++) renderDayBar(d);
+}
+
+function renderDayBar(day) {
+    const st = schDayState[day];
+    const bar = document.querySelector('.daybar[data-day="' + day + '"]');
+    if (!bar || !st) return;
+    const startPct = (st.start / 1440) * 100;
+    const endPct = (st.end / 1440) * 100;
+    const overnight = st.end < st.start;
+    const selA = bar.querySelector('.sel-a');
+    const selB = bar.querySelector('.sel-b');
+    if (!overnight) {
+        selA.style.display = (st.start === st.end) ? 'none' : 'block';
+        selA.style.left = startPct + '%';
+        selA.style.width = Math.max(0, endPct - startPct) + '%';
+        selB.style.display = 'none';
+    } else {
+        selA.style.display = 'block';
+        selA.style.left = startPct + '%';
+        selA.style.width = (100 - startPct) + '%';
+        selB.style.display = 'block';
+        selB.style.left = '0%';
+        selB.style.width = endPct + '%';
+    }
+    selA.classList.toggle('over', overnight);
+    selB.classList.toggle('over', overnight);
+    const hStart = bar.querySelector('.h-start');
+    const hEnd = bar.querySelector('.h-end');
+    hStart.style.left = startPct + '%';
+    hEnd.style.left = endPct + '%';
+    hStart.classList.toggle('over', overnight);
+    hEnd.classList.toggle('over', overnight);
+    bar.classList.toggle('off', !st.on);
+
+    const sEl = document.querySelector('.schDayStart[data-day="' + day + '"]');
+    const eEl = document.querySelector('.schDayEnd[data-day="' + day + '"]');
+    if (sEl) sEl.value = minToHHMM(st.start);
+    if (eEl) eEl.value = minToHHMM(st.end);
+
+    const dur = document.getElementById('dur-' + day);
+    if (dur) {
+        if (!st.on) { dur.textContent = ''; return; }
+        let mins = st.end - st.start; if (mins <= 0) mins += 1440;
+        const h = Math.floor(mins / 60), m = mins % 60;
+        dur.textContent = `${h}h${m ? String(m).padStart(2, '0') : ''}` + (overnight ? ' · nocturno (+1 día)' : '');
+    }
+}
+
+function onDayToggle(day) {
+    const cb = document.querySelector('.schDayOn[data-day="' + day + '"]');
+    if (cb) schDayState[day].on = cb.checked;
+    renderDayBar(day);
+}
+
+function onDayTimeInput(day) {
+    const s = document.querySelector('.schDayStart[data-day="' + day + '"]').value;
+    const e = document.querySelector('.schDayEnd[data-day="' + day + '"]').value;
+    if (s) schDayState[day].start = hhmmToMin(s);
+    if (e) schDayState[day].end = hhmmToMin(e);
+    renderDayBar(day);
+}
+
+function daybarMinFromEvent(bar, clientX) {
+    const r = bar.getBoundingClientRect();
+    let frac = (clientX - r.left) / (r.width || 1);
+    frac = Math.max(0, Math.min(1, frac));
+    let min = Math.round((frac * 1440) / 15) * 15;
+    if (min >= 1440) min = 1425; // 23:45
+    return min;
+}
+
+function isInSelection(st, frac) {
+    const s = st.start / 1440, e = st.end / 1440;
+    if (s <= e) return frac >= s && frac <= e;
+    return frac >= s || frac <= e; // nocturno: cruza medianoche
+}
+
+function onDayBarDown(e, day) {
+    const bar = e.currentTarget;
+    const st = schDayState[day];
+    if (!st.on) {
+        st.on = true;
+        const cb = document.querySelector('.schDayOn[data-day="' + day + '"]');
+        if (cb) cb.checked = true;
+    }
+    const r = bar.getBoundingClientRect();
+    const w = r.width || 1;
+    const frac = Math.max(0, Math.min(1, (e.clientX - r.left) / w));
+    const px = frac * w;
+    const startPx = (st.start / 1440) * w;
+    const endPx = (st.end / 1440) * w;
+    const nearStart = Math.abs(px - startPx) <= 8;
+    const nearEnd = Math.abs(px - endPx) <= 8;
+
+    schDragDay = day;
+    if (nearStart || nearEnd) {
+        schDragMode = (nearStart && nearEnd)
+            ? (Math.abs(px - startPx) <= Math.abs(px - endPx) ? 'start' : 'end')
+            : (nearStart ? 'start' : 'end');
+    } else if (isInSelection(st, frac)) {
+        schDragMode = 'move';
+        schDragGrabMin = daybarMinFromEvent(bar, e.clientX);
+        schDragOrig = { start: st.start, end: st.end };
+    } else {
+        // Zona vacía: se dibuja un nuevo turno desde este punto.
+        const min = daybarMinFromEvent(bar, e.clientX);
+        st.start = min; st.end = min;
+        schDragMode = 'end';
+    }
+    if (schDragMode !== 'move') {
+        st[schDragMode] = daybarMinFromEvent(bar, e.clientX);
+    }
+    renderDayBar(day);
+    e.preventDefault();
+}
+
+document.addEventListener('pointermove', e => {
+    if (schDragDay == null) return;
+    const bar = document.querySelector('.daybar[data-day="' + schDragDay + '"]');
+    if (!bar) return;
+    const st = schDayState[schDragDay];
+    const min = daybarMinFromEvent(bar, e.clientX);
+    if (schDragMode === 'move' && schDragOrig) {
+        const delta = min - schDragGrabMin;
+        const lo = Math.min(schDragOrig.start, schDragOrig.end);
+        const hi = Math.max(schDragOrig.start, schDragOrig.end);
+        const d = Math.max(-lo, Math.min(1439 - hi, delta));
+        st.start = schDragOrig.start + d;
+        st.end = schDragOrig.end + d;
+    } else if (schDragMode) {
+        st[schDragMode] = min;
+    }
+    renderDayBar(schDragDay);
+});
+
+document.addEventListener('pointerup', () => {
+    if (schDragDay != null && schDragMode === 'end') {
+        const st = schDayState[schDragDay];
+        if (st && st.start === st.end) { // clic simple sin arrastre: 8 h por defecto
+            st.end = (st.start + 480) % 1440;
+            renderDayBar(schDragDay);
+        }
+    }
+    schDragDay = null; schDragMode = null; schDragOrig = null;
+});
+
+function applyMondayToAll() {
+    const mon = schDayState[1];
+    if (!mon || !mon.on) { schMsg('Activa el lunes y define su hora antes de aplicarlo.', 'err'); return; }
+    for (let d = 2; d <= 7; d++) {
+        schDayState[d].on = true;
+        schDayState[d].start = mon.start;
+        schDayState[d].end = mon.end;
+        const cb = document.querySelector('.schDayOn[data-day="' + d + '"]');
+        if (cb) cb.checked = true;
+    }
+    for (let d = 1; d <= 7; d++) renderDayBar(d);
+    schMsg('Horario del lunes aplicado a todos los días.', 'ok');
+}
+
+let schPlantillaId = null;
+
+function fillTemplateOptions() {
+    schPlantillaId = null;
+    const inp = document.getElementById('schPlantillaSearch');
+    if (inp) inp.value = '';
+    renderPlantillaDropdown();
+}
+
+function plantillaCandidates() {
+    const q = (document.getElementById('schPlantillaSearch').value || '').trim().toLowerCase();
+    return (ALL_SCHEDULES || [])
+        .filter(s => s.id !== editingScheduleId)
+        .filter(s => !q
+            || String(s.name).toLowerCase().includes(q)
+            || schDaysText(s).toLowerCase().includes(q));
+}
+
+function renderPlantillaDropdown() {
+    const list = document.getElementById('schPlantillaList');
+    if (!list) return;
+    const todos = (ALL_SCHEDULES || []).filter(s => s.id !== editingScheduleId);
+    const items = plantillaCandidates();
+    if (!todos.length) {
+        list.innerHTML = '<div class="sched-combo-empty">No hay otros horarios guardados</div>';
+    } else if (!items.length) {
+        list.innerHTML = '<div class="sched-combo-empty">Sin resultados</div>';
+    } else {
+        list.innerHTML = items.map(s => `
+            <div class="sched-combo-item${s.id === schPlantillaId ? ' sel' : ''}" data-id="${s.id}" onmousedown="pickPlantilla(${s.id}, event)">
+                <b>${esc(s.name)}</b>
+                <span>${esc(schDaysText(s))}</span>
+            </div>`).join('');
+    }
+    list.classList.add('open');
+}
+
+function onPlantillaInput() {
+    schPlantillaId = null;
+    renderPlantillaDropdown();
+}
+
+function pickPlantilla(id, ev) {
+    if (ev) ev.preventDefault();
+    const s = (ALL_SCHEDULES || []).find(x => x.id === id);
+    if (!s) return;
+    schPlantillaId = id;
+    const inp = document.getElementById('schPlantillaSearch');
+    if (inp) inp.value = s.name;
+    const list = document.getElementById('schPlantillaList');
+    if (list) list.classList.remove('open');
+    schMsg('');
+}
+
+function plantillaKey(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        if (!schPlantillaId) {
+            const items = plantillaCandidates();
+            if (items.length) pickPlantilla(items[0].id);
+        }
+        if (schPlantillaId) applyTemplate();
+    }
+}
+
+function applyTemplate() {
+    if (!schPlantillaId) { schMsg('Busca y elige una plantilla base.', 'err'); return; }
+    const s = (ALL_SCHEDULES || []).find(x => x.id === schPlantillaId);
+    if (!s) { schMsg('La plantilla base ya no está disponible.', 'err'); return; }
+    initSchDayState(s.days);
+    for (let d = 1; d <= 7; d++) {
+        const cb = document.querySelector('.schDayOn[data-day="' + d + '"]');
+        if (cb) cb.checked = schDayState[d].on;
+    }
+    for (let d = 1; d <= 7; d++) renderDayBar(d);
+    const nameEl = document.getElementById('schName');
+    if (nameEl && !nameEl.value.trim()) nameEl.value = s.name + ' (copia)';
+    schMsg('Plantilla "' + s.name + '" cargada.', 'ok');
+}
+
+document.addEventListener('click', e => {
+    const combo = document.getElementById('schCombo');
+    const list = document.getElementById('schPlantillaList');
+    if (list && combo && !combo.contains(e.target)) list.classList.remove('open');
+});
+
+// Esc cierra el modal de horario desde cualquier parte (1º el buscador, luego el modal).
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    const modal = document.getElementById('modalHorario');
+    if (!modal || !modal.classList.contains('open')) return;
+    const list = document.getElementById('schPlantillaList');
+    if (list && list.classList.contains('open')) { list.classList.remove('open'); return; }
+    closeScheduleModal();
+});
+
+function openScheduleModal(id) {
+    editingScheduleId = id || null;
+    const s = id ? ALL_SCHEDULES.find(x => x.id === id) : null;
+    document.getElementById('schModalTitle').textContent = s ? 'Editar horario' : 'Nuevo horario';
+    document.getElementById('schName').value = s ? s.name : document.getElementById('newSchName').value.trim();
+    schMsg('');
+    initSchDayState(s ? s.days : []);
+    fillTemplateOptions();
+    buildSchDayRows();
+    document.getElementById('modalHorario').classList.add('open');
+    document.getElementById('schName').focus();
+}
+
+function closeScheduleModal() {
+    document.getElementById('modalHorario').classList.remove('open');
+    editingScheduleId = null;
+}
+
+function handleSchNameKey(e) {
+    if (e.key === 'Enter') { e.preventDefault(); openScheduleModal(); }
+}
+
+async function saveSchedule() {
+    const name = document.getElementById('schName').value.trim();
+    if (!name) { schMsg('Escribe el nombre del horario.', 'err'); return; }
+
+    const days = [];
+    for (let d = 1; d <= 7; d++) {
+        const st = schDayState[d];
+        if (!st || !st.on) continue;
+        if (st.start === st.end) { schMsg('El día ' + DIAS[d] + ' tiene la misma hora de inicio y fin.', 'err'); return; }
+        days.push({ weekday: d, start: minToHHMM(st.start), end: minToHHMM(st.end) });
+    }
+    if (!days.length) { schMsg('Marca al menos un día con su hora de inicio y fin.', 'err'); return; }
+
+    try {
+        const body = { name, days };
+        if (editingScheduleId) body.id = editingScheduleId;
+        const r = await fetch('/api/schedules', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+        });
+        const j = await r.json();
+        if (!j.success) throw new Error(j.error || 'Error');
+
+        msg(editingScheduleId ? `✅ Horario "${name}" actualizado` : `✅ Horario "${name}" creado`, 'ok');
+        const wasNew = !editingScheduleId;
+        if (wasNew) document.getElementById('newSchName').value = '';
+        closeScheduleModal();
+        await loadSchedules();
+        if (j.id) selectSchedule(j.id);
+    } catch (e) {
+        schMsg('❌ ' + e.message, 'err');
+    }
+}
+
+async function delSchedule(id) {
+    const s = ALL_SCHEDULES.find(x => x.id === id);
+    if (!confirm(`¿Eliminar el horario "${s ? s.name : ''}"? Los empleados quedarán sin horario.`)) return;
+    try {
+        await fetch('/api/schedules/' + id, { method: 'DELETE' });
+        msg(`✅ Horario "${s ? s.name : ''}" eliminado`, 'ok');
+        if (selectedScheduleId === id) { selectedScheduleId = null; resetAssignSchedulePanel(); }
+        await loadSchedules();
+    } catch (e) {
+        msg('❌ ' + e.message, 'err');
+    }
+}
+
+// ------------------------------------------------------------------
+//  Retrasos
+// ------------------------------------------------------------------
+let selectedRetrasoUser = null;
+
+async function loadRetrasos() {
+    const desde = document.getElementById('rDesde').value || '2000-01-01';
+    const hasta = document.getElementById('rHasta').value || '2099-12-31';
+    const q = document.getElementById('rBuscar').value.trim();
+    const area = document.getElementById('rArea').value;
+    const qs = new URLSearchParams({ desde, hasta });
+    if (q) qs.set('q', q);
+    if (area) qs.set('area', area);
+
+    const j = await (await fetch('/api/retrasos?' + qs)).json();
+    selectedRetrasoUser = null;
+    document.getElementById('cardRetrasoDet').style.display = 'none';
+
+    document.getElementById('tblRetrasos').innerHTML = (j.resumen || []).map((p, i) => `
+        <tr class="rrow" data-uid="${esc(p.user_id)}" onclick="showRetrasoDetalle('${esc(p.user_id)}')">
+            <td>${i + 1}</td>
+            <td>${esc(p.user_id)}</td>
+            <td>${esc(vist(p.name))}</td>
+            <td>${p.area ? esc(p.area) : '<span style="color:#9ca3af">—</span>'}</td>
+            <td><b style="color:#b91c1c">${p.retrasos}</b></td>
+            <td>${p.total_min}</td>
+        </tr>`).join('')
+        || '<tr><td colspan="6" style="text-align:center;color:#9ca3af;padding:30px">Sin atrasos en el periodo</td></tr>';
+}
+
+async function showRetrasoDetalle(userId) {
+    if (selectedRetrasoUser === userId) {
+        selectedRetrasoUser = null;
+        document.getElementById('cardRetrasoDet').style.display = 'none';
+        document.querySelectorAll('.rrow.open').forEach(r => r.classList.remove('open'));
+        return;
+    }
+    selectedRetrasoUser = userId;
+    document.querySelectorAll('.rrow').forEach(r => r.classList.toggle('open', r.dataset.uid === userId));
+
+    const desde = document.getElementById('rDesde').value || '2000-01-01';
+    const hasta = document.getElementById('rHasta').value || '2099-12-31';
+    const qs = new URLSearchParams({ desde, hasta, user_id: userId });
+    const j = await (await fetch('/api/retrasos/detalle?' + qs)).json();
+
+    const fmtDate = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+    const persona = (j.records || [])[0] || {};
+    document.getElementById('detRetrasoNombre').textContent = persona.name ? vist(persona.name) : userId;
+    document.getElementById('tblRetrasoDet').innerHTML = (j.records || []).map(r => `
+        <tr>
+            <td>${fmtDate(r.date)}</td>
+            <td>${esc(r.hora_esperada)}</td>
+            <td><b style="color:#b91c1c">${esc((r.entrada || '').slice(11, 19))}</b></td>
+            <td>${r.retraso_min}</td>
+        </tr>`).join('')
+        || '<tr><td colspan="4" style="text-align:center;color:#9ca3af;padding:20px">Sin días con atraso</td></tr>';
+
+    const card = document.getElementById('cardRetrasoDet');
+    card.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function exportRetrasos() {
+    const desde = document.getElementById('rDesde').value || '2000-01-01';
+    const hasta = document.getElementById('rHasta').value || '2099-12-31';
+    const q = document.getElementById('rBuscar').value.trim();
+    const area = document.getElementById('rArea').value;
+    let url = `/api/export/retrasos/excel?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`;
+    if (area) url += '&area=' + encodeURIComponent(area);
+    if (q) url += '&q=' + encodeURIComponent(q);
+    window.location.href = url;
+}
+
+function exportRetrasoDetalle() {
+    if (!selectedRetrasoUser) { msg('Selecciona primero una persona', 'err'); return; }
+    const desde = document.getElementById('rDesde').value || '2000-01-01';
+    const hasta = document.getElementById('rHasta').value || '2099-12-31';
+    window.location.href = `/api/export/retrasos-detalle/excel?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}&user_id=${encodeURIComponent(selectedRetrasoUser)}`;
+}
+
 // Inicializar
 document.getElementById('desde').value = firstOfMonth();
 document.getElementById('hasta').value = today();
 document.getElementById('dDesde').value = firstOfMonth();
 document.getElementById('dHasta').value = today();
+document.getElementById('rDesde').value = firstOfMonth();
+document.getElementById('rHasta').value = today();
 document.getElementById('buscarEmp').addEventListener('input', () => { loadReport(); });
 document.getElementById('fDepto').addEventListener('change', () => { loadReport(); });
 document.getElementById('dBuscar').addEventListener('input', () => { loadDetail(); });
-document.getElementById('expBuscar').addEventListener('input', () => { renderExpList(); });
+document.getElementById('rBuscar').addEventListener('input', () => { loadRetrasos(); });
+document.getElementById('rArea').addEventListener('change', () => { loadRetrasos(); });
 fetch('/api/device/config').then(r => r.json()).then(cfg => {
     document.getElementById('hIp').value = cfg.ip || '';
     document.getElementById('hPort').value = cfg.port || '';
     checkStatus();
 }).catch(() => { checkStatus(); });
 loadUsers(); loadDepartments(); loadReport(); loadDetail(); loadDevices(); checkStatus();
+loadSchedules(); loadRetrasos();
 setInterval(checkStatus, 20000);
 </script>
 </body>

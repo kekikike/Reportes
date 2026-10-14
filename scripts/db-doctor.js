@@ -13,10 +13,10 @@ const path = require('path');
 const Database = require('better-sqlite3');
 const { SCHEMA_SQL, DEFAULT_DEVICE } = require('../db-init');
 
-const APP_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
+const APP_DIR = process.pkg ? path.dirname(process.execPath) : path.join(__dirname, '..');
 const target = process.argv[2] || path.join(APP_DIR, 'reportes.db');
 
-const EXPECTED = ['attendance', 'departments', 'devices', 'users'];
+const EXPECTED = ['areas', 'attendance', 'devices', 'meta', 'user_areas', 'users'];
 
 console.log(`\n  Base: ${target}\n`);
 
@@ -84,7 +84,8 @@ const att = count('attendance');
 console.log(`\n  Datos:`);
 console.log(`    devices:     ${devs}`);
 console.log(`    users:       ${users}`);
-console.log(`    departments: ${count('departments')}`);
+console.log(`    areas:       ${count('areas')}`);
+console.log(`    user_areas:  ${count('user_areas')}`);
 console.log(`    attendance:  ${att}`);
 
 // Dispositivo

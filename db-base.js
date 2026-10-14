@@ -35,15 +35,15 @@ function buildBaseSql() {
 
     const db = new Database(tmp, { readonly: true, fileMustExist: true });
     // better-sqlite3 no expone .dump(): usar el metodo nativo
-    const stmt = db.prepare('SELECT sql FROM sqlite_master WHERE type IN ("table","index") AND sql IS NOT NULL');
+    const stmt = db.prepare("SELECT sql FROM sqlite_master WHERE type IN ('table','index') AND sql IS NOT NULL");
     const ddl = stmt.all().map(r => r.sql + ';').join('\n');
-    const d2 = db.prepare('SELECT sql FROM sqlite_master WHERE type="trigger" AND sql IS NOT NULL');
+    const d2 = db.prepare("SELECT sql FROM sqlite_master WHERE type='trigger' AND sql IS NOT NULL");
     const trig = d2.all().map(r => r.sql + ';').join('\n');
     const dump = [ddl, trig].filter(Boolean).join('\n');
     db.close();
 
     fs.rmSync(tmp, { force: true });
-    fs.rmSync(path.dirname(tmp), { force: true });
+    fs.rmSync(path.dirname(tmp), { force: true, recursive: true });
 
     return dump;
 }
