@@ -223,8 +223,7 @@
         <input type="text" id="hIp" placeholder="IP biométrico (ej: 192.168.118.172)">
         <input type="text" id="hPort" placeholder="Puerto (4370)" style="width:80px">
         <button onclick="addQuickDevice()" title="Agregar este biométrico a la lista y sincronizarlo">Agregar</button>
-        <button class="sec" onclick="syncDevice()">Sincronizar todos</button>
-        <button class="sec" onclick="syncDevice(true)" title="Fuerza descarga completa ignorando last_records (re-sync total)">Sync completa</button>
+        <button class="sec" onclick="syncDevice()">Sincronizar</button>
     </div>
 </div>
 
@@ -676,16 +675,16 @@ function showTab(name) {
 function today() { return new Date().toISOString().slice(0, 10); }
 function firstOfMonth() { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); }
 
-async function syncDevice(forceFull = false) {
-    msg(forceFull ? 'Sincronización completa (re-sync total)...' : 'Sincronizando con todos los biométricos en paralelo...', 'ok');
+async function syncDevice() {
+    msg('Sincronizando (completa)...', 'ok');
     showStatusCard();
     updateProgressBar(0);
     try {
-        const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ forceFull }) });
+        const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ forceFull: true }) });
         const j = await r.json();
         if (j.success && j.results) {
             const detalle = j.results.map(x => x.success
-                ? `${x.device.ip}: ${x.records} marcas (${x.inserted} nuevas)${x.incremental ? ' (incremental)' : ''}${x.conArea ? `, ${x.conArea} con área` : ''}`
+                ? `${x.device.ip}: ${x.records} leídas, ${x.inserted} nuevas${x.conArea ? `, ${x.conArea} con área` : ''}`
                 : `${x.device.ip}: falló (${x.error})`).join(' — ');
             msg('' + j.message + ' | ' + detalle, 'ok');
             const totalNew = j.results.filter(x => x.success).reduce((a, b) => a + (b.inserted || 0), 0);
@@ -718,15 +717,15 @@ function updateProgressBar(pct) {
     }
 }
 
-async function syncOne(ip, forceFull = false) {
-    msg('Sincronizando ' + ip + (forceFull ? ' (completa)' : '') + '...', 'ok');
+async function syncOne(ip) {
+    msg('Sincronizando ' + ip + '...', 'ok');
     showStatusCard();
     updateProgressBar(0);
     try {
-        const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip, forceFull }) });
+        const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip, forceFull: true }) });
         const j = await r.json();
         if (j.success) {
-            msg(`${j.device.ip}: ${j.users} usuarios, ${j.records} registros de marca (${j.inserted} nuevos)`
+            msg(`${j.device.ip}: ${j.users} usuarios, ${j.records} leídas, ${j.inserted} nuevas`
                 + (j.conArea ? `, ${j.conArea} con área` : '')
                 + (j.areasSinNombre ? `. Asigna el nombre de ${j.areasSinNombre} código(s) en la pestaña Áreas.` : '.'), 'ok');
             window.lastSyncRecords = j.inserted || 0;
