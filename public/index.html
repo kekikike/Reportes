@@ -25,14 +25,103 @@
     label { font-size: 12px; color: #6b7280; display: flex; flex-direction: column; gap: 4px; }
     input, select { padding: 8px 11px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 14px; background: #fff; transition: border-color .2s, box-shadow .2s, background .2s; }
     input:focus, select:focus { outline: none; border-color: #f0c84f; box-shadow: 0 0 0 3px rgba(240,200,79,.25), 0 0 12px rgba(240,200,79,.15); background: #fefce8; }
-    button { cursor: pointer; background: linear-gradient(180deg, #147a3d, #0f6131); color: #fff; border: none; font-weight: 600; box-shadow: 0 2px 6px rgba(15,97,49,.3), inset 0 1px 0 rgba(255,255,255,.15); transition: transform .08s, box-shadow .2s, background .2s; }
-    button:hover { background: linear-gradient(180deg, #106834, #0b4a25); box-shadow: 0 4px 12px rgba(15,97,49,.4), inset 0 1px 0 rgba(255,255,255,.2); }
-    button:active { transform: scale(0.98); box-shadow: 0 1px 3px rgba(15,97,49,.3), inset 0 2px 4px rgba(0,0,0,.15); }
-    button.sec { background: linear-gradient(180deg, #f5d46b, #f0c84f); color: #3a2f00; box-shadow: 0 2px 6px rgba(240,200,79,.35), inset 0 1px 0 rgba(255,255,255,.2); border: 1px solid rgba(200,160,50,.3); }
-    button.sec:hover { background: linear-gradient(180deg, #fde047, #f0c84f); box-shadow: 0 4px 12px rgba(240,200,79,.45), inset 0 1px 0 rgba(255,255,255,.25); }
-    button.sec:active { transform: scale(0.98); }
-    button.warn { background: linear-gradient(180deg, #f5d46b, #f0c84f); color: #3a2f00; box-shadow: 0 2px 6px rgba(240,200,79,.35), inset 0 1px 0 rgba(255,255,255,.2); }
-    button.warn:hover { background: linear-gradient(180deg, #fde047, #f0c84f); box-shadow: 0 4px 12px rgba(240,200,79,.45), inset 0 1px 0 rgba(255,255,255,.25); }
+    /* ===== SISTEMA DE BOTONES UNIFICADO ===== */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 36px;
+        padding: 0 16px;
+        font-size: 13px;
+        font-weight: 600;
+        line-height: 1;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: transform .08s, box-shadow .15s, background .15s, border-color .15s;
+        box-shadow: 0 2px 6px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.12);
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-sm { height: 30px; padding: 0 12px; font-size: 12px; }
+    .btn-lg { height: 42px; padding: 0 20px; font-size: 14px; }
+
+    /* Primary - Verde (acciones principales) */
+    .btn-primary {
+        background: linear-gradient(180deg, #147a3d, #0f6131);
+        color: #fff;
+        box-shadow: 0 2px 6px rgba(15,97,49,.3), inset 0 1px 0 rgba(255,255,255,.15);
+        border: 1px solid rgba(15,97,49,.3);
+    }
+    .btn-primary:hover { background: linear-gradient(180deg, #106834, #0b4a25); box-shadow: 0 4px 12px rgba(15,97,49,.4), inset 0 1px 0 rgba(255,255,255,.2); }
+    .btn-primary:active { background: linear-gradient(180deg, #0d5529, #09411e); }
+
+    /* Secondary - Dorado metálico (acciones secundarias) */
+    .btn-secondary {
+        background: linear-gradient(180deg, #f5d46b, #f0c84f);
+        color: #3a2f00;
+        box-shadow: 0 2px 6px rgba(240,200,79,.35), inset 0 1px 0 rgba(255,255,255,.2);
+        border: 1px solid rgba(200,160,50,.35);
+    }
+    .btn-secondary:hover { background: linear-gradient(180deg, #fde047, #f0c84f); box-shadow: 0 4px 12px rgba(240,200,79,.45), inset 0 1px 0 rgba(255,255,255,.25); }
+    .btn-secondary:active { background: linear-gradient(180deg, #e8b842, #d4a63a); }
+
+    /* Danger - Rojo (acciones destructivas) */
+    .btn-danger {
+        background: linear-gradient(180deg, #ef4444, #dc2626);
+        color: #fff;
+        box-shadow: 0 2px 6px rgba(220,38,38,.3), inset 0 1px 0 rgba(255,255,255,.15);
+        border: 1px solid rgba(220,38,38,.3);
+    }
+    .btn-danger:hover { background: linear-gradient(180deg, #dc2626, #b91c1c); box-shadow: 0 4px 12px rgba(220,38,38,.4), inset 0 1px 0 rgba(255,255,255,.2); }
+    .btn-danger:active { background: linear-gradient(180deg, #b91c1c, #991b1b); }
+
+    /* Ghost - Neutro (cancelar, cerrar) */
+    .btn-ghost {
+        background: #fff;
+        color: #374151;
+        box-shadow: 0 1px 3px rgba(0,0,0,.1), inset 0 1px 0 rgba(255,255,255,.5);
+        border: 1px solid #d1d5db;
+    }
+    .btn-ghost:hover { background: #f3f4f6; box-shadow: 0 2px 6px rgba(0,0,0,.12); }
+    .btn-ghost:active { background: #e5e7eb; }
+
+    /* Icon-only buttons (× close) */
+    .btn-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 16px;
+        line-height: 1;
+        background: transparent;
+        color: #fff;
+        box-shadow: none;
+        border: none;
+    }
+    .btn-icon:hover { background: rgba(255,255,255,.15); }
+    .btn-icon:active { background: rgba(255,255,255,.25); }
+    .btn-icon-danger { color: #fff; background: rgba(220,38,38,.8); }
+    .btn-icon-danger:hover { background: rgba(220,38,38,1); }
+
+    /* Focus states */
+    .btn:focus-visible, .btn-icon:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(240,200,79,.35), 0 2px 6px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.12); }
+    .btn-icon:focus-visible { box-shadow: 0 0 0 3px rgba(240,200,79,.35); }
+
+    /* Active press */
+    .btn:active, .btn-icon:active { transform: scale(0.96); }
+
+    /* Legacy compat - mapea clases viejas a nuevas */
+    button { composes: btn btn-primary; }
+    button.sec { composes: btn btn-secondary; }
+    button.warn { composes: btn btn-secondary; }
+    button.danger { composes: btn btn-danger; }
+    button.ghost { composes: btn btn-ghost; }
 
     .stats { display: flex; gap: 30px; flex-wrap: wrap; }
     .stat b { display: block; font-size: 26px; color: #0f6131; }
@@ -70,21 +159,17 @@
     tr.row-falta > td, tr.row-falta > td b { color: #991b1b; }
     tr.row-permiso > td { background: #dcfce7 !important; }
     tr.row-permiso > td, tr.row-permiso > td b { color: #166534; }
-    .btn-ficha { padding: 5px 12px; font-size: 12px; background: #0f6131; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
-    .btn-ficha:hover { background: #0b4a25; }
 
-    /* Botones grandes de acción (Editar / Eliminar / Quitar) */
-    .btn-act { padding: 7px 15px; font-size: 13px; font-weight: 600; border: none; border-radius: 6px; color: #fff; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.15); transition: transform .08s, box-shadow .2s, background .2s; }
-    .btn-act.edit { background: linear-gradient(180deg, #147a3d, #0f6131); box-shadow: 0 2px 6px rgba(15,97,49,.3), inset 0 1px 0 rgba(255,255,255,.15); }
-    .btn-act.edit:hover { background: linear-gradient(180deg, #106834, #0b4a25); box-shadow: 0 4px 12px rgba(15,97,49,.4), inset 0 1px 0 rgba(255,255,255,.2); }
-    .btn-act.edit:active { transform: scale(0.98); }
-    .btn-act.del { background: linear-gradient(180deg, #ef4444, #dc2626); box-shadow: 0 2px 6px rgba(220,38,38,.3), inset 0 1px 0 rgba(255,255,255,.15); }
-    .btn-act.del:hover { background: linear-gradient(180deg, #dc2626, #b91c1c); box-shadow: 0 4px 12px rgba(220,38,38,.4), inset 0 1px 0 rgba(255,255,255,.2); }
-    .btn-act.del:active { transform: scale(0.98); }
-    .btn-act.ghost { background: linear-gradient(180deg, #f5d46b, #f0c84f); color: #3a2f00; box-shadow: 0 2px 6px rgba(240,200,79,.35), inset 0 1px 0 rgba(255,255,255,.2); border: 1px solid rgba(200,160,50,.3); }
-    .btn-act.ghost:hover { background: linear-gradient(180deg, #fde047, #f0c84f); box-shadow: 0 4px 12px rgba(240,200,79,.45), inset 0 1px 0 rgba(255,255,255,.25); }
-    .btn-act.ghost:active { transform: scale(0.98); }
-    .btn-act:active { transform: scale(0.98); box-shadow: 0 1px 3px rgba(0,0,0,.3), inset 0 2px 4px rgba(0,0,0,.15); }
+    /* ===== Botones de acción en tablas (Editar / Eliminar / Quitar / Ver ficha) ===== */
+    .btn-table-act { display: inline-flex; align-items: center; justify-content: center; gap: 4px; height: 28px; padding: 0 10px; font-size: 11px; font-weight: 600; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap; transition: transform .06s, box-shadow .12s, background .12s; box-shadow: 0 1px 3px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.12); }
+    .btn-table-act:active { transform: scale(0.95); }
+    .btn-table-act.edit { background: linear-gradient(180deg, #147a3d, #0f6131); color: #fff; box-shadow: 0 1px 3px rgba(15,97,49,.3), inset 0 1px 0 rgba(255,255,255,.15); }
+    .btn-table-act.edit:hover { background: linear-gradient(180deg, #106834, #0b4a25); }
+    .btn-table-act.del { background: linear-gradient(180deg, #ef4444, #dc2626); color: #fff; box-shadow: 0 1px 3px rgba(220,38,38,.3), inset 0 1px 0 rgba(255,255,255,.15); }
+    .btn-table-act.del:hover { background: linear-gradient(180deg, #dc2626, #b91c1c); }
+    .btn-table-act.ficha { background: linear-gradient(180deg, #147a3d, #0f6131); color: #fff; box-shadow: 0 1px 3px rgba(15,97,49,.3), inset 0 1px 0 rgba(255,255,255,.15); }
+    .btn-table-act.ficha:hover { background: linear-gradient(180deg, #106834, #0b4a25); }
+    .btn-table-act:active { transform: scale(0.95); }
 
     /* Ficha de justificación (vista dentro del modal) */
     .ficha { position: relative; padding: 4px 2px 0; }
@@ -203,7 +288,7 @@
 <div class="status-card" id="statusCard" style="display:none">
     <div class="status-header">
         <span class="status-title">Estado del sistema</span>
-        <button class="status-close" onclick="hideStatusCard()" aria-label="Cerrar">×</button>
+        <button class="btn-icon btn-icon-danger" onclick="hideStatusCard()" aria-label="Cerrar">×</button>
     </div>
     <div class="status-body">
         <div class="status-row">
@@ -228,9 +313,10 @@
                 <div class="status-bar" id="stBar"></div>
             </div>
         </div>
-    </div>
-    <div class="status-actions">
-        <button class="sec" onclick="syncDevice(); hideStatusCard()">Sincronizar ahora</button>
+        <div class="status-row">
+            <span class="status-label">Detalle</span>
+            <span class="status-value" id="stDetail" style="font-size:10px;color:#6b7280">—</span>
+        </div>
     </div>
 </div>
 
@@ -239,8 +325,8 @@
     <div class="hdrcfg">
         <input type="text" id="hIp" placeholder="IP biométrico (ej: 192.168.118.172)">
         <input type="text" id="hPort" placeholder="Puerto (4370)" style="width:80px">
-        <button onclick="addQuickDevice()" title="Agregar este biométrico a la lista y sincronizarlo">Agregar</button>
-        <button class="sec" onclick="syncDevice()">Sincronizar</button>
+        <button class="btn btn-primary" onclick="addQuickDevice()" title="Agregar este biométrico a la lista y sincronizarlo">Agregar</button>
+        <button class="btn btn-secondary" onclick="syncDevice()">Sincronizar</button>
     </div>
 </div>
 
@@ -269,8 +355,8 @@
                 <label style="display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;font-weight:600;color:#0f6131" title="Muestra cada día con las entradas ordenadas del más temprano al más tarde">
                     <input type="checkbox" id="ordenEntrada" onchange="loadReport()"> Por hora de entrada
                 </label>
-                <button onclick="loadReport()">Consultar</button>
-                <button class="warn" onclick="openExport()">Exportar reporte</button>
+                <button class="btn btn-primary" onclick="loadReport()">Consultar</button>
+                <button class="btn btn-secondary" onclick="openExport()">Exportar reporte</button>
             </div>
         </div>
 
@@ -297,7 +383,7 @@
                 <label>Desde <input type="date" id="dDesde"></label>
                 <label>Hasta <input type="date" id="dHasta"></label>
                 <input type="text" id="dBuscar" placeholder="Filtrar por CI o nombre" style="flex:1;min-width:180px">
-                <button onclick="loadDetail()">Consultar</button>
+                <button class="btn btn-primary" onclick="loadDetail()">Consultar</button>
             </div>
             <p class="hint">Haz clic en un empleado para desplegar su detalle de marcaciones (tipo, fecha y hora).</p>
         </div>
@@ -321,7 +407,7 @@
                 <label>Hasta <input type="date" id="rHasta"></label>
                 <label>Área <select id="rArea" style="min-width:170px"><option value="">Todas las áreas</option></select></label>
                 <input type="text" id="rBuscar" placeholder="Buscar por CI o nombre" style="flex:1;min-width:180px">
-                <button onclick="loadRetrasos()">Consultar</button>
+                <button class="btn btn-primary" onclick="loadRetrasos()">Consultar</button>
             </div>
             <p class="hint">Se listan solo los empleados con atrasos. Haz clic en una fila para ver, debajo, todos los días en que llegó tarde.</p>
         </div>
@@ -329,7 +415,7 @@
         <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
                 <h4 style="margin:0;font-size:15px;color:#0f6131">Cantidad de atrasos por persona</h4>
-                <button class="warn" onclick="exportRetrasos()">Exportar a Excel</button>
+                <button class="btn btn-secondary" onclick="exportRetrasos()">Exportar a Excel</button>
             </div>
             <div class="scroll">
                 <table>
@@ -344,7 +430,7 @@
         <div class="card" id="cardRetrasoDet" style="display:none">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
                 <h4 style="margin:0;font-size:15px;color:#0f6131">Días con atraso: <span id="detRetrasoNombre"></span></h4>
-                <button class="warn" onclick="exportRetrasoDetalle()">Exportar a Excel</button>
+                <button class="btn btn-secondary" onclick="exportRetrasoDetalle()">Exportar a Excel</button>
             </div>
             <div class="scroll">
                 <table>
@@ -365,8 +451,8 @@
                 <label>Hasta <input type="date" id="aHasta"></label>
                 <label>Área <select id="aArea" style="min-width:170px"><option value="">Todas las áreas</option></select></label>
                 <input type="text" id="aBuscar" placeholder="Buscar por CI o nombre" style="flex:1;min-width:180px">
-                <button onclick="loadAsistencia()">Consultar</button>
-                <button class="warn" onclick="exportAsistencia()">Exportar a Excel</button>
+                <button class="btn btn-primary" onclick="loadAsistencia()">Consultar</button>
+                <button class="btn btn-secondary" onclick="exportAsistencia()">Exportar a Excel</button>
             </div>
             <p class="hint">Cada empleado se evalúa <b>según su horario</b>: si no marca dentro de su horario es <b>Falta</b>; si llega tarde es <b>Atraso</b>; si sale antes es <b>Salida temprana</b>. Al <b>justificar</b>, la falta pasa a <b>Permiso</b> y el atraso/salida a <b>Con permiso</b> (y dejan de contarse).</p>
         </div>
@@ -411,8 +497,8 @@
                 <h4 style="margin:0 0 10px;font-size:15px;color:#0f6131">Crear nuevo horario</h4>
                 <div class="toolbar" style="flex-wrap:wrap;gap:10px;margin:0">
                     <input type="text" id="newSchName" placeholder="Nombre del horario (ej: Administrativo)" style="flex:1;min-width:220px" onkeydown="handleSchNameKey(event)" autocomplete="off">
-                    <button onclick="openScheduleModal()" style="padding:11px 26px;font-size:15px;font-weight:700">Crear horario</button>
-                    <button class="sec" onclick="loadSchedules()">Actualizar</button>
+                    <button class="btn btn-primary btn-lg" onclick="openScheduleModal()">Crear horario</button>
+                    <button class="btn btn-secondary" onclick="loadSchedules()">Actualizar</button>
                 </div>
             </div>
 
@@ -455,7 +541,7 @@
                 </label>
             </div>
             <div style="margin-top:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                <button class="sec" onclick="addUserToBiometrico()" style="padding:11px 26px;font-size:15px;font-weight:700">Subir al biométrico</button>
+                <button class="btn btn-primary btn-lg" onclick="addUserToBiometrico()">Subir al biométrico</button>
                 <span class="hint" style="margin:0">Si el equipo no acepta el alta, se sincroniza automáticamente.</span>
             </div>
         </div>
@@ -472,8 +558,8 @@
                 <div class="toolbar" style="flex-wrap:wrap;gap:10px;margin:0">
                     <input type="text" id="newDeptName" placeholder="Nombre del área (ej: Mantenimiento)" style="flex:1;min-width:200px" onkeydown="handleDeptNameKey(event)" autocomplete="off">
                     <input type="text" id="newDeptCode" placeholder="Código (ej: MAN1)" style="width:150px;text-transform:uppercase" autocomplete="off">
-                    <button onclick="createDept()" style="padding:11px 26px;font-size:15px;font-weight:700">Crear área</button>
-                    <button class="sec" onclick="loadDepartments()">Actualizar</button>
+                    <button class="btn btn-primary btn-lg" onclick="createDept()">Crear área</button>
+                    <button class="btn btn-secondary" onclick="loadDepartments()">Actualizar</button>
                 </div>
             </div>
 
@@ -515,7 +601,7 @@
                 <input type="text" id="dIp" placeholder="IP (192.168.118.172)">
                 <input type="text" id="dPort" placeholder="Puerto (4370)" style="width:90px">
                 <input type="text" id="dPass" placeholder="Clave (0)" style="width:90px">
-                <button onclick="addDevice()">Agregar dispositivo</button>
+                <button class="btn btn-primary" onclick="addDevice()">Agregar dispositivo</button>
             </div>
         </div>
         <div class="card">
@@ -545,8 +631,8 @@
             </div>
 
             <div class="toolbar" style="justify-content:flex-end;margin-top:18px">
-                <button onclick="closeExport()">Cancelar</button>
-                <button class="sec" onclick="doExport()">Descargar</button>
+                <button class="btn btn-ghost" onclick="closeExport()">Cancelar</button>
+                <button class="btn btn-primary" onclick="doExport()">Descargar</button>
             </div>
         </div>
     </div>
@@ -555,7 +641,7 @@
 <!-- Modal Horario -->
 <div class="modal-mask" id="modalHorario">
     <div class="modal" style="width:780px;max-height:92vh;overflow:auto">
-        <button type="button" class="modal-x" title="Cerrar" aria-label="Cerrar" onclick="closeScheduleModal()">×</button>
+        <button type="button" class="btn-icon btn-icon-danger" title="Cerrar" aria-label="Cerrar" onclick="closeScheduleModal()">×</button>
         <h2 id="schModalTitle">Nuevo horario</h2>
         <div id="schModalMsg" class="msg" style="margin-bottom:10px"></div>
         <label style="margin-bottom:12px;display:block">Nombre
@@ -563,21 +649,21 @@
         </label>
 
         <div class="toolbar" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">
-            <button type="button" class="sec" onclick="applyMondayToAll()" title="Copia el horario del lunes a todos los días restantes">Aplicar lunes a todos</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="applyMondayToAll()" title="Copia el horario del lunes a todos los días restantes">Aplicar lunes a todos</button>
             <span class="sched-combo" id="schCombo">
                 <input type="text" id="schPlantillaSearch" placeholder="Buscar plantilla base…" autocomplete="off"
                        oninput="onPlantillaInput()" onfocus="renderPlantillaDropdown()" onkeydown="plantillaKey(event)">
                 <div class="sched-combo-list" id="schPlantillaList"></div>
             </span>
-            <button type="button" onclick="applyTemplate()" title="Copia los días y horas de otro horario existente como base">Usar plantilla</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="applyTemplate()" title="Copia los días y horas de otro horario existente como base">Usar plantilla</button>
         </div>
 
         <div id="schDaysBody"></div>
 
         <p class="hint">Haz clic o arrastra dentro de la barra de 24 h para fijar la hora de <b>inicio</b> y <b>fin</b>. Si el fin es anterior al inicio, el horario es <b>nocturno</b> (termina al día siguiente). Los atrasos se calculan con <b>1 minuto</b> de tolerancia: si el horario inicia 08:30, hasta 08:30:59 se considera normal.</p>
         <div class="toolbar" style="justify-content:flex-end;margin-top:16px">
-            <button onclick="closeScheduleModal()">Cancelar</button>
-            <button class="sec" onclick="saveSchedule()">Guardar</button>
+            <button class="btn btn-ghost" onclick="closeScheduleModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveSchedule()">Guardar</button>
         </div>
     </div>
 </div>
@@ -585,7 +671,7 @@
 <!-- Modal Justificación -->
 <div class="modal-mask" id="modalJust">
     <div class="modal" style="width:520px">
-        <button type="button" class="modal-x" title="Cerrar" aria-label="Cerrar" onclick="closeJustModal()">×</button>
+        <button type="button" class="btn-icon btn-icon-danger" title="Cerrar" aria-label="Cerrar" onclick="closeJustModal()">×</button>
         <h2 id="justTitulo">Justificar</h2>
         <p class="hint" id="justSub" style="margin:0 0 4px"></p>
         <label style="display:block;margin-top:10px">Motivo / descripción
@@ -593,8 +679,8 @@
         </label>
         <div id="justMsg" class="msg" style="margin-top:10px"></div>
         <div class="toolbar" style="justify-content:flex-end;margin-top:14px">
-            <button onclick="closeJustModal()">Cancelar</button>
-            <button class="sec" onclick="saveJustification()">Guardar</button>
+            <button class="btn btn-ghost" onclick="closeJustModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="saveJustification()">Guardar</button>
         </div>
     </div>
 </div>
@@ -602,11 +688,11 @@
 <!-- Modal Ficha de justificación -->
 <div class="modal-mask" id="modalFicha">
     <div class="modal" style="width:680px;max-height:92vh;overflow:auto">
-        <button type="button" class="modal-x" title="Cerrar" aria-label="Cerrar" onclick="closeFicha()">×</button>
+        <button type="button" class="btn-icon btn-icon-danger" title="Cerrar" aria-label="Cerrar" onclick="closeFicha()">×</button>
         <div id="fichaBody"></div>
         <div class="toolbar" style="justify-content:flex-end;margin-top:16px">
-            <button onclick="closeFicha()">Cerrar</button>
-            <button class="sec" onclick="imprimirFicha()">Imprimir / Guardar PDF</button>
+            <button class="btn btn-ghost" onclick="closeFicha()">Cerrar</button>
+            <button class="btn btn-primary" onclick="imprimirFicha()">Imprimir / Guardar PDF</button>
         </div>
     </div>
 </div>
@@ -614,7 +700,7 @@
 <!-- Modal Editar Marcación (ventana secreta) -->
 <div class="modal-mask" id="modalEditMarca">
     <div class="modal" style="width:480px">
-        <button type="button" class="modal-x" title="Cerrar" aria-label="Cerrar" onclick="closeEditMarca()">×</button>
+        <button type="button" class="btn-icon btn-icon-danger" title="Cerrar" aria-label="Cerrar" onclick="closeEditMarca()">×</button>
         <h3 style="margin:0 0 16px;color:#0f6131">Editar marcación manual</h3>
         <div style="display:flex;flex-direction:column;gap:12px">
             <div>
@@ -637,8 +723,8 @@
             </div>
             <div id="emMsg" style="min-height:18px;font-size:12px"></div>
             <div class="toolbar" style="justify-content:flex-end;margin-top:4px">
-                <button onclick="closeEditMarca()">Cancelar</button>
-                <button class="sec" onclick="saveEditMarca()">Guardar</button>
+                <button class="btn btn-ghost" onclick="closeEditMarca()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveEditMarca()">Guardar</button>
             </div>
         </div>
     </div>
@@ -697,19 +783,25 @@ async function syncDevice() {
     msg('⟳ Iniciando sincronización completa...', 'ok');
     showStatusCard();
     updateProgressBar(5);
+    setDetail('Iniciando conexión...');
     document.getElementById('stServer').textContent = 'Conectando...';
     document.getElementById('stServer').className = 'status-value warn';
     document.getElementById('stDevice').textContent = 'Conectando al biométrico...';
     document.getElementById('stDevice').className = 'status-value warn';
     
     try {
-        updateProgressBar(15);
+        updateProgressBar(10);
+        setDetail('Conectando al biométrico...');
         const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ forceFull: true }) });
-        updateProgressBar(50);
+        updateProgressBar(30);
+        setDetail('Descargando registros del dispositivo...');
         const j = await r.json();
-        updateProgressBar(80);
+        updateProgressBar(60);
+        setDetail('Procesando y guardando en base de datos...');
         
         if (j.success && j.results) {
+            updateProgressBar(80);
+            setDetail('Finalizando...');
             const detalle = j.results.map(x => x.success
                 ? `${x.device.ip}: ${x.records} leídas, ${x.inserted} nuevas${x.conArea ? `, ${x.conArea} con área` : ''}`
                 : `${x.device.ip}: falló (${x.error})`).join(' — ');
@@ -724,6 +816,7 @@ async function syncDevice() {
             document.getElementById('stDevice').textContent = `${connected}/${j.results.length} biométricos OK`;
             document.getElementById('stDevice').className = connected === j.results.length ? 'status-value ok' : 'status-value warn';
             document.getElementById('stLastSync').textContent = new Date().toLocaleString();
+            setDetail('Completado ✓');
             
             loadUsers(); loadDepartments(); loadReport(); loadDevices();
         } else {
@@ -732,6 +825,7 @@ async function syncDevice() {
             document.getElementById('stServer').className = 'status-value err';
             document.getElementById('stDevice').textContent = 'Falló la conexión';
             document.getElementById('stDevice').className = 'status-value err';
+            setDetail('Error: ' + j.error);
         }
     } catch (e) {
         msg('❌ No se pudo sincronizar: ' + e.message, 'err');
@@ -739,10 +833,16 @@ async function syncDevice() {
         document.getElementById('stServer').className = 'status-value err';
         document.getElementById('stDevice').textContent = 'Excepción: ' + e.message;
         document.getElementById('stDevice').className = 'status-value err';
+        setDetail('Excepción: ' + e.message);
     }
     updateProgressBar(100);
     setTimeout(() => { hideStatusCard(); updateProgressBar(0); }, 3000);
     checkStatus();
+}
+
+function setDetail(text) {
+    const el = document.getElementById('stDetail');
+    if (el) el.textContent = text;
 }
 
 function updateProgressBar(pct) {
@@ -765,17 +865,23 @@ async function syncOne(ip) {
     msg('⟳ Sincronizando ' + ip + '...', 'ok');
     showStatusCard();
     updateProgressBar(5);
+    setDetail('Iniciando conexión...');
     document.getElementById('stServer').textContent = 'Conectando...';
     document.getElementById('stServer').className = 'status-value warn';
     document.getElementById('stDevice').textContent = 'Conectando a ' + ip + '...';
     document.getElementById('stDevice').className = 'status-value warn';
     try {
-        updateProgressBar(15);
+        updateProgressBar(10);
+        setDetail('Conectando al biométrico...');
         const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip, forceFull: true }) });
-        updateProgressBar(50);
+        updateProgressBar(30);
+        setDetail('Descargando registros del dispositivo...');
         const j = await r.json();
-        updateProgressBar(80);
+        updateProgressBar(60);
+        setDetail('Procesando y guardando en base de datos...');
         if (j.success) {
+            updateProgressBar(80);
+            setDetail('Finalizando...');
             msg('✅ ' + j.device.ip + ': ' + j.users + ' usuarios, ' + j.records + ' leídas, ' + j.inserted + ' nuevas' + (j.conArea ? ', ' + j.conArea + ' con área' : '') + (j.areasSinNombre ? '. Asigna el nombre de ' + j.areasSinNombre + ' código(s) en la pestaña Áreas.' : '.'), 'ok');
             window.lastSyncRecords = j.inserted || 0;
             document.getElementById('stNewRecords').textContent = (j.inserted || 0) + ' nuevos';
@@ -784,6 +890,7 @@ async function syncOne(ip) {
             document.getElementById('stDevice').textContent = j.device.ip + ' OK';
             document.getElementById('stDevice').className = 'status-value ok';
             document.getElementById('stLastSync').textContent = new Date().toLocaleString();
+            setDetail('Completado ✓');
             loadUsers(); loadDepartments(); loadReport(); loadDevices();
         } else {
             msg('❌ ' + ip + ': ' + j.error, 'err');
@@ -791,6 +898,7 @@ async function syncOne(ip) {
             document.getElementById('stServer').className = 'status-value err';
             document.getElementById('stDevice').textContent = 'Falló: ' + j.error;
             document.getElementById('stDevice').className = 'status-value err';
+            setDetail('Error: ' + j.error);
         }
     } catch (e) {
         msg('❌ No se pudo sincronizar ' + ip + ': ' + e.message, 'err');
@@ -798,6 +906,7 @@ async function syncOne(ip) {
         document.getElementById('stServer').className = 'status-value err';
         document.getElementById('stDevice').textContent = 'Excepción: ' + e.message;
         document.getElementById('stDevice').className = 'status-value err';
+        setDetail('Excepción: ' + e.message);
     }
     updateProgressBar(100);
     setTimeout(() => { hideStatusCard(); updateProgressBar(0); }, 3000);
@@ -1041,7 +1150,7 @@ async function loadReport() {
                 <td${lateAttr}>${entrada ? '<b>' + esc(entrada) + '</b>' : '<span class="missing">—</span>'}</td>
                 <td>${salida ? '<b>' + esc(salida) + '</b>' : '<span class="missing">—</span>'}</td>
                 <td>${estadoBadge(rec.estado || (rec.falta ? 'Falta' : ''))}</td>
-                <td style="white-space:nowrap">${(rec.motivos && rec.motivos.length) ? `<button class="btn-ficha" onclick="verFicha('${esc(rec.user_id)}','${esc(rec.date)}')">Ver ficha</button>` : '<span style="color:#9ca3af">—</span>'}</td>`;
+                <td style="white-space:nowrap">${(rec.motivos && rec.motivos.length) ? `<button class="btn-table-act ficha" onclick="verFicha('${esc(rec.user_id)}','${esc(rec.date)}')">Ver ficha</button>` : '<span style="color:#9ca3af">—</span>'}</td>`;
             return `<tr class="${rowCls}">${celdas}${detallado ? `<td><span class="badge ${rec.marcaciones > 1 ? 'ok' : 'no'}">${rec.marcaciones}</span></td>` : ''}</tr>`;
         }).join('');
         return `<tr class="dateRow"><td colspan="${visible}">${esc(fmtDate(f))}</td></tr>` + fila;
@@ -1212,8 +1321,8 @@ function renderDeptList() {
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:12px">
                 <span style="color:#6b7280">${d.empleados || 0} usuarios</span>
                 <span style="display:flex;gap:4px">
-                    <button class="btn-act edit" onclick="event.stopPropagation(); editDept('${esc(d.codigo)}')">Editar</button>
-                    <button class="btn-act del" onclick="event.stopPropagation(); delDept('${esc(d.codigo)}')">Eliminar</button>
+                    <button class="btn-table-act edit" onclick="event.stopPropagation(); editDept('${esc(d.codigo)}')">Editar</button>
+                    <button class="btn-table-act del" onclick="event.stopPropagation(); delDept('${esc(d.codigo)}')">Eliminar</button>
                 </span>
             </div>
         </div>
@@ -1465,10 +1574,10 @@ async function loadDevices() {
         <td style="white-space:nowrap">${last} <span style="color:#9ca3af;font-size:11px">(${registro} registros)</span></td>
         <td>${d.active ? '<span class="badge ok">Activo</span>' : '<span class="badge no">Inactivo</span>'}</td>
         <td style="white-space:nowrap">
-            <button onclick="syncOne('${esc(d.ip)}')">Sync</button>
-            <button onclick="setDevicePassword(${d.id}, '${esc(d.ip)}')">Clave</button>
-            <button onclick="toggleDevice(${d.id})">${d.active ? 'Pausar' : 'Activar'}</button>
-            <button class="btn-act del" onclick="deleteDevice(${d.id})">Eliminar</button>
+            <button class="btn btn-secondary btn-sm" onclick="syncOne('${esc(d.ip)}')">Sync</button>
+            <button class="btn btn-secondary btn-sm" onclick="setDevicePassword(${d.id}, '${esc(d.ip)}')">Clave</button>
+            <button class="btn btn-secondary btn-sm" onclick="toggleDevice(${d.id})">${d.active ? 'Pausar' : 'Activar'}</button>
+            <button class="btn-table-act del" onclick="deleteDevice(${d.id})">Eliminar</button>
         </td>
     </tr>`;
     }).join('');
@@ -1525,8 +1634,8 @@ function renderSchList() {
             </div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px">${esc(schDaysText(s))}</div>
             <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px">
-                <button class="btn-act edit" onclick="event.stopPropagation(); openScheduleModal(${s.id})">Editar</button>
-                <button class="btn-act del" onclick="event.stopPropagation(); delSchedule(${s.id})">Eliminar</button>
+                <button class="btn-table-act edit" onclick="event.stopPropagation(); openScheduleModal(${s.id})">Editar</button>
+                <button class="btn-table-act del" onclick="event.stopPropagation(); delSchedule(${s.id})">Eliminar</button>
             </div>
         </div>`).join('');
     document.querySelectorAll('.sch-item').forEach(item => {
@@ -2178,10 +2287,10 @@ function showAsistDetalle(userId) {
 }
 
 function justBtn(uid, date, tipo, label) {
-    return `<button class="btn-act edit" style="margin:2px" onclick="openJustModal('${esc(uid)}','${date}','${tipo}')">${esc(label)}</button>`;
+    return `<button class="btn-table-act edit" style="margin:2px" onclick="openJustModal('${esc(uid)}','${date}','${tipo}')">${esc(label)}</button>`;
 }
 function unjustBtn(uid, date, tipo) {
-    return `<button class="btn-act del" style="margin:2px" onclick="quitarJustificacion('${esc(uid)}','${date}','${tipo}')">Quitar</button>`;
+    return `<button class="btn-table-act del" style="margin:2px" onclick="quitarJustificacion('${esc(uid)}','${date}','${tipo}')">Quitar</button>`;
 }
 
 const JUST_TITULOS = { falta: 'Justificar falta', atraso: 'Justificar llegada tarde', salida_temprana: 'Justificar salida temprana' };
