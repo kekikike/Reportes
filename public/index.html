@@ -9,9 +9,9 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; background: #f4f6fb; color: #1f2937; }
 
-    .header { background: #0f6131; color: #fff; padding: 16px 28px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+    .header { background: #0f6131; color: #fff; padding: 16px 28px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.2); position: relative; }
     .header h1 { font-size: 19px; flex: 1; }
-    .header .dot { width: 11px; height: 11px; border-radius: 50%; background: #dfb444; display: inline-block; margin-right: 6px; }
+    .header .dot { width: 11px; height: 11px; border-radius: 50%; background: #f0c84f; display: inline-block; margin-right: 6px; }
     .header .hdrcfg { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .hdrcfg input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #0f172a; background: #fff; }
 
@@ -25,10 +25,10 @@
     input:focus, select:focus { outline: 2px solid #9ec9ab; border-color: #0f6131; }
     button { cursor: pointer; background: #0f6131; color: #fff; border: none; font-weight: 600; }
     button:hover { background: #0b4a25; }
-    button.sec { background: #dfb444; color: #3a2f00; }
-    button.sec:hover { background: #c9a13a; }
-    button.warn { background: #dfb444; color: #3a2f00; }
-    button.warn:hover { background: #c9a13a; }
+    button.sec { background: #f0c84f; color: #3a2f00; }
+    button.sec:hover { background: #e8b842; }
+    button.warn { background: #f0c84f; color: #3a2f00; }
+    button.warn:hover { background: #e8b842; }
 
     .stats { display: flex; gap: 30px; flex-wrap: wrap; }
     .stat b { display: block; font-size: 26px; color: #0f6131; }
@@ -72,8 +72,8 @@
     .btn-act.edit:hover { background: #0b4a25; }
     .btn-act.del { background: #dc2626; }
     .btn-act.del:hover { background: #b91c1c; }
-    .btn-act.ghost { background: #dfb444; color: #3a2f00; }
-    .btn-act.ghost:hover { background: #c9a13a; }
+    .btn-act.ghost { background: #f0c84f; color: #3a2f00; }
+    .btn-act.ghost:hover { background: #e8b842; }
 
     /* Ficha de justificación (vista dentro del modal) */
     .ficha { position: relative; padding: 4px 2px 0; }
@@ -106,7 +106,7 @@
     .daybar-sel { position: absolute; top: 0; bottom: 0; background: rgba(15,97,49,.30); pointer-events: none; display: none; }
     .daybar-sel.over { background: rgba(223,180,68,.45); }
     .daybar-handle { position: absolute; top: 0; bottom: 0; width: 8px; background: #0f6131; border-radius: 3px; transform: translateX(-50%); pointer-events: none; box-shadow: 0 0 0 1px #fff inset; }
-    .daybar-handle.over { background: #dfb444; }
+    .daybar-handle.over { background: #f0c84f; }
     .daybar-labels { display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af; margin-top: 2px; }
 
     /* Combobox de búsqueda de plantilla base */
@@ -157,11 +157,65 @@
     .toast.hide { animation: toastUp .24s ease-in forwards; }
     @keyframes toastDown { from { transform: translateY(-130%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     @keyframes toastUp { to { transform: translateY(-20px); opacity: 0; } }
+
+    /* Tarjeta de estado (carga/sync) en esquina superior derecha */
+    .status-card { position: fixed; top: 16px; right: 16px; z-index: 300; width: 280px; background: #fff; border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.20); border: 1px solid #e5e7eb; overflow: hidden; animation: statusSlide .3s cubic-bezier(.2,.8,.2,1); }
+    @keyframes statusSlide { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .status-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #0f6131; color: #fff; font-weight: 600; font-size: 13px; }
+    .status-close { background: transparent; border: none; color: #fff; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
+    .status-close:hover { color: #f0c84f; }
+    .status-body { padding: 12px 14px; }
+    .status-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
+    .status-row:last-child { margin-bottom: 0; }
+    .status-label { color: #6b7280; }
+    .status-value { color: #1f2937; font-weight: 500; font-family: monospace; font-size: 11px; }
+    .status-value.ok { color: #0f6131; }
+    .status-value.warn { color: #f0c84f; }
+    .status-value.err { color: #dc2626; }
+    .status-progress { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
+    .status-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #f0c84f, #e8b842); transition: width .3s ease; }
+    .status-actions { padding: 10px 14px; border-top: 1px solid #e5e7eb; background: #f8fafc; }
+    .status-actions button { width: 100%; }
 </style>
 </head>
 <body>
 
 <div class="toast-box" id="toastBox"></div>
+
+<!-- Tarjeta de estado / carga (esquina superior derecha) -->
+<div class="status-card" id="statusCard" style="display:none">
+    <div class="status-header">
+        <span class="status-title">Estado del sistema</span>
+        <button class="status-close" onclick="hideStatusCard()" aria-label="Cerrar">×</button>
+    </div>
+    <div class="status-body">
+        <div class="status-row">
+            <span class="status-label">Servidor</span>
+            <span class="status-value" id="stServer">—</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Biométrico</span>
+            <span class="status-value" id="stDevice">—</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Última sync</span>
+            <span class="status-value" id="stLastSync">—</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Registros nuevos</span>
+            <span class="status-value" id="stNewRecords">—</span>
+        </div>
+        <div class="status-row">
+            <span class="status-label">Progreso</span>
+            <div class="status-progress" id="stProgress" style="display:none">
+                <div class="status-bar" id="stBar"></div>
+            </div>
+        </div>
+    </div>
+    <div class="status-actions">
+        <button class="sec" onclick="syncDevice(); hideStatusCard()">Sincronizar ahora</button>
+    </div>
+</div>
 
 <div class="header">
     <h1><span class="dot" id="statusDot"></span>ZKTeco Reportes</h1>
@@ -170,6 +224,7 @@
         <input type="text" id="hPort" placeholder="Puerto (4370)" style="width:80px">
         <button onclick="addQuickDevice()" title="Agregar este biométrico a la lista y sincronizarlo">Agregar</button>
         <button class="sec" onclick="syncDevice()">Sincronizar todos</button>
+        <button class="sec" onclick="syncDevice(true)" title="Fuerza descarga completa ignorando last_records (re-sync total)">Sync completa</button>
     </div>
 </div>
 
@@ -621,16 +676,20 @@ function showTab(name) {
 function today() { return new Date().toISOString().slice(0, 10); }
 function firstOfMonth() { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); }
 
-async function syncDevice() {
-    msg('Sincronizando con todos los biométricos en paralelo...', 'ok');
+async function syncDevice(forceFull = false) {
+    msg(forceFull ? 'Sincronización completa (re-sync total)...' : 'Sincronizando con todos los biométricos en paralelo...', 'ok');
+    showStatusCard();
+    updateProgressBar(0);
     try {
-        const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ forceFull }) });
         const j = await r.json();
         if (j.success && j.results) {
             const detalle = j.results.map(x => x.success
-                ? `${x.device.ip}: ${x.records} marcas${x.incremental ? ' (incremental)' : ''}${x.conArea ? `, ${x.conArea} con área` : ''}`
+                ? `${x.device.ip}: ${x.records} marcas (${x.inserted} nuevas)${x.incremental ? ' (incremental)' : ''}${x.conArea ? `, ${x.conArea} con área` : ''}`
                 : `${x.device.ip}: falló (${x.error})`).join(' — ');
             msg('' + j.message + ' | ' + detalle, 'ok');
+            const totalNew = j.results.filter(x => x.success).reduce((a, b) => a + (b.inserted || 0), 0);
+            window.lastSyncRecords = totalNew;
             loadUsers(); loadDepartments(); loadReport(); loadDevices();
         } else {
             msg('Error: ' + j.error, 'err');
@@ -638,18 +697,39 @@ async function syncDevice() {
     } catch (e) {
         msg('No se pudo sincronizar: ' + e.message, 'err');
     }
+    updateProgressBar(100);
+    setTimeout(() => { hideStatusCard(); updateProgressBar(0); }, 3000);
     checkStatus();
 }
 
-async function syncOne(ip) {
-    msg('Sincronizando ' + ip + '...', 'ok');
+function updateProgressBar(pct) {
+    const bar = document.getElementById('stBar');
+    const prog = document.getElementById('stProgress');
+    if (!bar || !prog) return;
+    if (pct > 0 && pct < 100) {
+        prog.style.display = 'block';
+        bar.style.width = pct + '%';
+    } else if (pct >= 100) {
+        bar.style.width = '100%';
+        setTimeout(() => { prog.style.display = 'none'; bar.style.width = '0%'; }, 800);
+    } else {
+        prog.style.display = 'none';
+        bar.style.width = '0%';
+    }
+}
+
+async function syncOne(ip, forceFull = false) {
+    msg('Sincronizando ' + ip + (forceFull ? ' (completa)' : '') + '...', 'ok');
+    showStatusCard();
+    updateProgressBar(0);
     try {
-        const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip }) });
+        const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip, forceFull }) });
         const j = await r.json();
         if (j.success) {
-            msg(`${j.device.ip}: ${j.users} usuarios, ${j.records} registros de marca`
+            msg(`${j.device.ip}: ${j.users} usuarios, ${j.records} registros de marca (${j.inserted} nuevos)`
                 + (j.conArea ? `, ${j.conArea} con área` : '')
                 + (j.areasSinNombre ? `. Asigna el nombre de ${j.areasSinNombre} código(s) en la pestaña Áreas.` : '.'), 'ok');
+            window.lastSyncRecords = j.inserted || 0;
             loadUsers(); loadDepartments(); loadReport(); loadDevices();
         } else {
             msg('' + ip + ': ' + j.error, 'err');
@@ -657,6 +737,8 @@ async function syncOne(ip) {
     } catch (e) {
         msg('No se pudo sincronizar ' + ip + ': ' + e.message, 'err');
     }
+    updateProgressBar(100);
+    setTimeout(() => { hideStatusCard(); updateProgressBar(0); }, 3000);
     checkStatus();
 }
 
@@ -695,13 +777,59 @@ async function checkStatus() {
             try {
                 const r = await fetch(`/api/device/status?ip=${encodeURIComponent(d.ip)}&port=${d.port}`);
                 const j = await r.json();
-                return !!j.connected;
-            } catch (e) { return false; }
+                return { connected: !!j.connected, device: d, status: j };
+            } catch (e) { return { connected: false, device: d, status: null }; }
         }));
-        const ok = res.filter(Boolean).length;
-        dot.style.background = ok === res.length ? '#4ade80' : ok > 0 ? '#dfb444' : '#f87171';
+        const ok = res.filter(r => r.connected).length;
+        dot.style.background = ok === res.length ? '#4ade80' : ok > 0 ? '#f0c84f' : '#f87171';
+
+        // Actualizar tarjeta de estado si está visible
+        updateStatusCard(res);
     } catch (e) {
         dot.style.background = '#f87171';
+    }
+}
+
+// Tarjeta de estado (esquina superior derecha)
+function showStatusCard() {
+    document.getElementById('statusCard').style.display = 'block';
+}
+function hideStatusCard() {
+    document.getElementById('statusCard').style.display = 'none';
+}
+function updateStatusCard(devices) {
+    const card = document.getElementById('statusCard');
+    if (card.style.display === 'none') return;
+
+    // Servidor
+    document.getElementById('stServer').textContent = 'En línea';
+    document.getElementById('stServer').className = 'status-value ok';
+
+    // Biométrico
+    const connected = devices.filter(d => d.connected).length;
+    const total = devices.length;
+    const stDevice = document.getElementById('stDevice');
+    if (connected === total) {
+        stDevice.textContent = `${connected}/${total} conectados`;
+        stDevice.className = 'status-value ok';
+    } else if (connected > 0) {
+        stDevice.textContent = `${connected}/${total} conectados`;
+        stDevice.className = 'status-value warn';
+    } else {
+        stDevice.textContent = 'Desconectado';
+        stDevice.className = 'status-value err';
+    }
+
+    // Última sync
+    const lastSync = devices[0]?.status?.last_sync_at;
+    document.getElementById('stLastSync').textContent = lastSync
+        ? new Date(lastSync).toLocaleString()
+        : '—';
+
+    // Registros nuevos (placeholder, se actualiza al sincronizar)
+    // Se usa variable global stLastRecords
+    if (typeof window.lastSyncRecords !== 'undefined') {
+        document.getElementById('stNewRecords').textContent = window.lastSyncRecords;
     }
 }
 

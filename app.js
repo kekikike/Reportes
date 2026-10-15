@@ -742,13 +742,15 @@ function getAsistencia({ desde, hasta, q, area, user_id }) {
 //  Sincronizar UN dispositivo: conecta, descarga SOLO los registros
 //  nuevos (incremental por dispositivo) y los guarda en SQLite.
 //  El user_id del biométrico es el carnet (CI): se identifica por id.
+//  Si forceFull=true: ignora last_records y descarga TODO (re-sync completa).
 // ----------------------------------------------------------------
-async function syncDevice(dev) {
+async function syncDevice(dev, forceFull = false) {
     const { id: deviceId, ip, port, password } = dev;
     const now = new Date().toISOString();
 
     let zk = null;
     let zkRetry = null;
+    let inserted = 0;
     try {
         zk = new ZKDevice(ip, port, password, 30000);
         await zk.connect();
@@ -767,8 +769,6 @@ async function syncDevice(dev) {
             const insU = db.prepare('INSERT OR REPLACE INTO users (device_id, uid, user_id, name, privilege, department, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
             for (const u of users) {
                 insU.run(deviceId, u.uid, u.userId, _cleanNameView(u.name), u.privilege, u.department, now);
-                // El equipo solo entrega el codigo del area: se registra
-                // para poder asignarle un nombre desde la interfaz.
                 _registrarArea(u.department);
             }
         }
@@ -776,7 +776,7 @@ async function syncDevice(dev) {
         // Descarga SOLO los registros nuevos del dispositivo (desde el
         // ultimo indice ATTLOG sincronizado en last_records).
         const fetchNew = async (conn) => {
-            const lastRec = Number(dev.last_records) || 0;
+            const lastRec = forceFull ? 0 : (Number(dev.last_records) || 0);
             // Timestamp maximo local de ESTE dispositivo para verificar la
             // cola incremental (los nuevos registros no pueden ser menores).
             const maxRow = db.get(
@@ -823,23 +823,39 @@ async function syncDevice(dev) {
             }
         }
 
-        if (deviceId) {
+        if (deviceId && records.length > 0) {
+            // Transacción para asegurar atomicidad: o se guardan todos o ninguno
             const insA = db.prepare(
                 'INSERT OR IGNORE INTO attendance (device_id, user_id, name, timestamp, status, punch, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
             );
-            for (const r of records) {
-                const ts = r.timestamp instanceof Date
-                    ? r.timestamp.toISOString()
-                    : String(r.timestamp);
-                insA.run(deviceId, r.userId, _cleanNameView(r.name || userMap[r.userId] || ''), ts, r.status, r.punch, now);
-            }
+            const insertMany = db.transaction((recs) => {
+                let count = 0;
+                for (const r of recs) {
+                    const ts = r.timestamp instanceof Date
+                        ? r.timestamp.toISOString()
+                        : String(r.timestamp);
+                    const info = insA.run(deviceId, r.userId, _cleanNameView(r.name || userMap[r.userId] || ''), ts, r.status, r.punch, now);
+                    if (info.changes > 0) count++;
+                }
+                return count;
+            });
+            inserted = insertMany(records);
 
-            // Registrar el ultimo indice sincronizado (snapshot del
-            // dispositivo, no el conteo leido) para la proxima corrida.
-            db.run(
-                'UPDATE devices SET last_records = ?, last_sync_at = ? WHERE id = ?',
-                deviceTotal, now, deviceId
-            );
+            // Verificación: contar cuántos quedaron realmente en la BD para este device/fecha
+            const verifyCount = db.get(
+                'SELECT COUNT(*) AS c FROM attendance WHERE device_id = ? AND date(synced_at) = date(?)',
+                deviceId, now
+            ).c;
+
+            // Registrar el ultimo indice sincronizado SOLO si la inserción fue exitosa
+            // Usamos deviceTotal (total en dispositivo) para avanzar el cursor,
+            // pero si no se insertó nada, no avanzamos para reintentar en la próxima sync.
+            if (inserted > 0 || records.length === 0) {
+                db.run(
+                    'UPDATE devices SET last_records = ?, last_sync_at = ? WHERE id = ?',
+                    deviceTotal, now, deviceId
+                );
+            }
         }
 
         const conArea = users.filter(u => u.department).length;
@@ -852,10 +868,12 @@ async function syncDevice(dev) {
             device: { id: deviceId, name: dev.name, ip, port },
             users: users.length,
             records: records.length,
+            inserted,           // realmente insertados en esta corrida
             incremental,
             deviceRecords: deviceTotal,
             conArea,
             areasSinNombre,
+            forceFull,
         };
     } finally {
         try { if (zkRetry) await zkRetry.disconnect(); } catch (e) {}
@@ -870,14 +888,16 @@ async function syncDevice(dev) {
 //    PARALELO (Promise.all) para no multiplicar el tiempo de conexion.
 //  Ambos biométricos controlan al mismo personal y alimentan el MISMO
 //  reporte de asistencia; la descarga es incremental por dispositivo.
+//  Opcion forceFull=true: ignora last_records y descarga TODO (re-sync completa).
 // ----------------------------------------------------------------
 app.post('/api/sync', async (req, res) => {
-    const { ip, port, password } = req.body || {};
+    const { ip, port, password, forceFull } = req.body || {};
     const now = new Date().toISOString();
 
     const deviceIp   = (ip && String(ip).trim());
     const devicePort = parseInt(port) || 4370;
     const devicePass = (password !== undefined && password !== null) ? password : 0;
+    const force      = forceFull === true;
 
     try {
         // Sincronizar un dispositivo puntual (ya existente o nuevo).
@@ -890,7 +910,7 @@ app.post('/api/sync', async (req, res) => {
                 );
                 dev = db.get('SELECT * FROM devices WHERE ip = ?', deviceIp);
             }
-            const result = await syncDevice(dev);
+            const result = await syncDevice(dev, force);
             db.save();
             res.json({
                 success: true,
@@ -909,7 +929,7 @@ app.post('/api/sync', async (req, res) => {
 
         const results = await Promise.all(devices.map(async (d) => {
             try {
-                return await syncDevice(d);
+                return await syncDevice(d, force);
             } catch (err) {
                 return {
                     success: false,
