@@ -57,6 +57,34 @@
     .missing { color: #b45309; font-weight: 600; }
     td.late { background: #fee2e2 !important; }
     td.late b { color: #b91c1c; }
+
+    /* Entradas/Salidas: filas de Falta (rojo) y Permiso (verde) */
+    tr.row-falta > td { background: #fee2e2 !important; }
+    tr.row-falta > td, tr.row-falta > td b { color: #991b1b; }
+    tr.row-permiso > td { background: #dcfce7 !important; }
+    tr.row-permiso > td, tr.row-permiso > td b { color: #166534; }
+    .btn-ficha { padding: 5px 12px; font-size: 12px; background: #0f6131; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .btn-ficha:hover { background: #0b4a25; }
+
+    /* Botones grandes de acción (Editar / Eliminar / Quitar) */
+    .btn-act { padding: 7px 15px; font-size: 13px; font-weight: 600; border: none; border-radius: 6px; color: #fff; cursor: pointer; }
+    .btn-act.edit { background: #0f6131; }
+    .btn-act.edit:hover { background: #0b4a25; }
+    .btn-act.del { background: #dc2626; }
+    .btn-act.del:hover { background: #b91c1c; }
+    .btn-act.ghost { background: #dfb444; color: #3a2f00; }
+    .btn-act.ghost:hover { background: #c9a13a; }
+
+    /* Ficha de justificación (vista dentro del modal) */
+    .ficha { position: relative; padding: 4px 2px 0; }
+    .ficha-logo { position: absolute; top: 0; right: 0; height: 64px; }
+    .ficha-title { font-size: 19px; color: #0f6131; border-bottom: 2px solid #0f6131; padding-bottom: 8px; margin: 0 0 4px; padding-right: 84px; }
+    .ficha-tbl { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 14px; }
+    .ficha-tbl td { border: 1px solid #cbd5e1; padding: 9px 12px; vertical-align: top; }
+    .ficha-tbl .fl { width: 150px; background: #eaf5ee; font-weight: 600; color: #0f6131; }
+    .ficha-firma { margin-top: 54px; display: flex; flex-direction: column; align-items: flex-end; }
+    .ficha-firma .linea { width: 260px; border-top: 1px solid #334155; }
+    .ficha-firma .lbl { width: 260px; text-align: center; font-size: 12px; color: #475569; margin-top: 4px; }
     .rrow { cursor: pointer; }
     .rrow:hover { background: #e9f2ec; }
     .rrow.open { background: #dcefe2; font-weight: 600; }
@@ -182,7 +210,7 @@
                         <tr>
                             <th class="colFecha">Fecha</th><th>CI</th><th>Nombre</th>
                             <th class="colDept">Área</th>
-                            <th>Entrada</th><th>Salida</th><th class="colMarc">Marc.</th>
+                            <th>Entrada</th><th>Salida</th><th>Estado</th><th>Justificación</th><th class="colMarc">Marc.</th>
                         </tr>
                     </thead>
                     <tbody id="tblES"></tbody>
@@ -500,6 +528,18 @@
     </div>
 </div>
 
+<!-- Modal Ficha de justificación -->
+<div class="modal-mask" id="modalFicha">
+    <div class="modal" style="width:680px;max-height:92vh;overflow:auto">
+        <button type="button" class="modal-x" title="Cerrar" aria-label="Cerrar" onclick="closeFicha()">×</button>
+        <div id="fichaBody"></div>
+        <div class="toolbar" style="justify-content:flex-end;margin-top:16px">
+            <button onclick="closeFicha()">Cerrar</button>
+            <button class="sec" onclick="imprimirFicha()">Imprimir / Guardar PDF</button>
+        </div>
+    </div>
+</div>
+
 <script>
 function removeToast(el) {
     if (!el || el._gone) return;
@@ -726,6 +766,8 @@ function doExport() {
     closeExport();
 }
 
+let LAST_ES_ROWS = [];
+
 async function loadReport() {
     const { desde, hasta } = fechaRange();
     const q = document.getElementById('buscarEmp').value.trim();
@@ -739,10 +781,11 @@ async function loadReport() {
     const j = await r.json();
 
     const rows = j.records;
+    LAST_ES_ROWS = rows;
     const detallado = !!q;
     const fmtDate = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
     // Columnas visibles: Fecha, CI, Nombre, Área, Entrada, Salida, [Marc.]
-    const colCount = 7 + (detallado ? 1 : 0);
+    const visible = 8 + (detallado ? 1 : 0);   // Fecha..Justificación (+ Marc.)
     document.querySelector('.colFecha').style.display = '';
     document.querySelector('.colMarc').style.display = detallado ? '' : 'none';
 
@@ -754,6 +797,7 @@ async function loadReport() {
             const entrada = (rec.entrada || '').slice(11, 19);
             const salida  = (rec.salida || '').slice(11, 19);
             const atraso = !!rec.atraso;
+            const rowCls = rec.color === 'red' ? 'row-falta' : (rec.color === 'green' ? 'row-permiso' : '');
             // Atraso: la entrada supera la hora del horario (+ tolerancia). Se
             // resalta en rojo pastel con el detalle en el tooltip.
             const lateAttr = atraso
@@ -766,20 +810,93 @@ async function loadReport() {
                 <td>${esc(vist(rec.name))}</td>
                 <td>${rec.area ? esc(rec.area) : '<span style="color:#9ca3af">—</span>'}</td>
                 <td${lateAttr}>${entrada ? '<b>' + esc(entrada) + '</b>' : '<span class="missing">—</span>'}</td>
-                <td>${salida ? '<b>' + esc(salida) + '</b>' : '<span class="missing">—</span>'}`;
-            return `<tr>${celdas}${detallado ? `<td><span class="badge ${rec.marcaciones > 1 ? 'ok' : 'no'}">${rec.marcaciones}</span></td>` : ''}</tr>`;
+                <td>${salida ? '<b>' + esc(salida) + '</b>' : '<span class="missing">—</span>'}</td>
+                <td>${estadoBadge(rec.estado || (rec.falta ? 'Falta' : ''))}</td>
+                <td style="white-space:nowrap">${(rec.motivos && rec.motivos.length) ? `<button class="btn-ficha" onclick="verFicha('${esc(rec.user_id)}','${esc(rec.date)}')">Ver ficha</button>` : '<span style="color:#9ca3af">—</span>'}</td>`;
+            return `<tr class="${rowCls}">${celdas}${detallado ? `<td><span class="badge ${rec.marcaciones > 1 ? 'ok' : 'no'}">${rec.marcaciones}</span></td>` : ''}</tr>`;
         }).join('');
-        // dateRow no abarca la columna Fecha (esa es sticky por separado)
-        return `<tr class="dateRow"><td colspan="${colCount - 1}">${esc(fmtDate(f))}</td></tr>` + fila;
+        return `<tr class="dateRow"><td colspan="${visible}">${esc(fmtDate(f))}</td></tr>` + fila;
     }).join('');
 
     document.getElementById('tblES').innerHTML = html ||
-        `<tr><td colspan="${colCount}" style="text-align:center;color:#9ca3af;padding:30px">Sin marcas en el periodo</td></tr>`;
+        `<tr><td colspan="${visible}" style="text-align:center;color:#9ca3af;padding:30px">Sin marcas en el periodo</td></tr>`;
 
     // Fija la fila del dia justo debajo del encabezado colgante.
     const esThead = document.querySelector('#panel-es thead');
     const esTop = esThead ? esThead.offsetHeight : 0;
     if (esTop > 0) document.documentElement.style.setProperty('--es-thead-h', esTop + 'px');
+}
+
+// ------------------------------------------------------------------
+//  Ficha de justificación (vista dentro de la app + impresión / PDF)
+// ------------------------------------------------------------------
+const FICHA_TITULO = { falta: 'Falta', atraso: 'Llegada tarde', salida_temprana: 'Salida temprana' };
+let FICHA_CTX = null;
+
+function fichaHTML(rec, logoSrc) {
+    const fmt = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+    const motivos = (rec.motivos && rec.motivos.length)
+        ? rec.motivos
+        : (rec.motivo ? [{ tipo: '', reason: rec.motivo, hora: null }] : []);
+    const filas = motivos.map(m => {
+        const conHora = (m.tipo === 'atraso' || m.tipo === 'salida_temprana');
+        return (m.tipo ? `<tr><td class="fl">Tipo</td><td>${esc(FICHA_TITULO[m.tipo] || 'Justificación')}</td></tr>` : '')
+            + ((conHora && m.hora) ? `<tr><td class="fl">Hora</td><td>${esc(m.hora)}</td></tr>` : '')
+            + `<tr><td class="fl">Descripción</td><td>${esc(m.reason || '')}</td></tr>`;
+    }).join('');
+    return `
+    <div class="ficha">
+        <img class="ficha-logo" src="${logoSrc || '/logo.png'}" alt="Logo">
+        <h2 class="ficha-title">Justificación de Asistencia</h2>
+        <table class="ficha-tbl">
+            <tr><td class="fl">CI</td><td>${esc(rec.user_id)}</td></tr>
+            <tr><td class="fl">Nombre</td><td>${esc(vist(rec.name))}</td></tr>
+            <tr><td class="fl">Área</td><td>${rec.area ? esc(rec.area) : '—'}</td></tr>
+            <tr><td class="fl">Fecha</td><td>${fmt(rec.date)}</td></tr>
+            ${filas}
+        </table>
+        <div class="ficha-firma"><div class="linea"></div><div class="lbl">Firma / Recibido</div></div>
+    </div>`;
+}
+
+function verFicha(uid, date) {
+    const rec = LAST_ES_ROWS.find(r => String(r.user_id) === String(uid) && String(r.date) === String(date));
+    if (!rec) return;
+    FICHA_CTX = rec;
+    document.getElementById('fichaBody').innerHTML = fichaHTML(rec);
+    document.getElementById('modalFicha').classList.add('open');
+}
+
+function closeFicha() {
+    document.getElementById('modalFicha').classList.remove('open');
+    FICHA_CTX = null;
+}
+
+// Abre una ventana con la ficha y lanza el diálogo de impresión del navegador
+// (desde el cual también se puede "Guardar como PDF").
+function imprimirFicha() {
+    if (!FICHA_CTX) return;
+    const w = window.open('', '_blank');
+    if (!w) { msg('Permite las ventanas emergentes para imprimir.', 'err'); return; }
+    const logo = location.origin + '/logo.png';
+    const css = `
+        body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; color: #1f2937; margin: 0; padding: 32px; }
+        .ficha { position: relative; max-width: 720px; margin: 0 auto; }
+        .ficha-logo { position: absolute; top: 0; right: 0; height: 64px; }
+        .ficha-title { font-size: 19px; color: #0f6131; border-bottom: 2px solid #0f6131; padding-bottom: 8px; margin: 0 0 4px; padding-right: 84px; }
+        .ficha-tbl { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 14px; }
+        .ficha-tbl td { border: 1px solid #cbd5e1; padding: 9px 12px; vertical-align: top; }
+        .ficha-tbl .fl { width: 150px; background: #eaf5ee; font-weight: 600; color: #0f6131; }
+        .ficha-firma { margin-top: 60px; display: flex; flex-direction: column; align-items: flex-end; }
+        .ficha-firma .linea { width: 260px; border-top: 1px solid #334155; }
+        .ficha-firma .lbl { width: 260px; text-align: center; font-size: 12px; color: #475569; margin-top: 4px; }`;
+    const html = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
+        + '<title>Justificación de Asistencia</title><style>' + css + '</style></head><body>'
+        + fichaHTML(FICHA_CTX, logo)
+        + '<script>window.onload=function(){setTimeout(function(){window.print();},350);};<\/script>'
+        + '</body></html>';
+    w.document.write(html);
+    w.document.close();
 }
 
 async function loadDetail() {
@@ -866,8 +983,8 @@ function renderDeptList() {
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:12px">
                 <span style="color:#6b7280">${d.empleados || 0} usuarios</span>
                 <span style="display:flex;gap:4px">
-                    <button onclick="event.stopPropagation(); editDept('${esc(d.codigo)}')" style="padding:2px 8px;font-size:11px;background:#0f6131;color:#fff;border:none;border-radius:4px">Editar</button>
-                    <button onclick="event.stopPropagation(); delDept('${esc(d.codigo)}')" style="padding:2px 8px;font-size:11px;background:#dc2626;color:#fff;border:none;border-radius:4px">Eliminar</button>
+                    <button class="btn-act edit" onclick="event.stopPropagation(); editDept('${esc(d.codigo)}')">Editar</button>
+                    <button class="btn-act del" onclick="event.stopPropagation(); delDept('${esc(d.codigo)}')">Eliminar</button>
                 </span>
             </div>
         </div>
@@ -1122,7 +1239,7 @@ async function loadDevices() {
             <button onclick="syncOne('${esc(d.ip)}')">Sync</button>
             <button onclick="setDevicePassword(${d.id}, '${esc(d.ip)}')">Clave</button>
             <button onclick="toggleDevice(${d.id})">${d.active ? 'Pausar' : 'Activar'}</button>
-            <button style="background:#dc2626" onclick="deleteDevice(${d.id})">Eliminar</button>
+            <button class="btn-act del" onclick="deleteDevice(${d.id})">Eliminar</button>
         </td>
     </tr>`;
     }).join('');
@@ -1179,8 +1296,8 @@ function renderSchList() {
             </div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px">${esc(schDaysText(s))}</div>
             <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px">
-                <button onclick="event.stopPropagation(); openScheduleModal(${s.id})" style="padding:2px 8px;font-size:11px;background:#0f6131;color:#fff;border:none;border-radius:4px">Editar</button>
-                <button onclick="event.stopPropagation(); delSchedule(${s.id})" style="padding:2px 8px;font-size:11px;background:#dc2626;color:#fff;border:none;border-radius:4px">Eliminar</button>
+                <button class="btn-act edit" onclick="event.stopPropagation(); openScheduleModal(${s.id})">Editar</button>
+                <button class="btn-act del" onclick="event.stopPropagation(); delSchedule(${s.id})">Eliminar</button>
             </div>
         </div>`).join('');
     document.querySelectorAll('.sch-item').forEach(item => {
@@ -1832,10 +1949,10 @@ function showAsistDetalle(userId) {
 }
 
 function justBtn(uid, date, tipo, label) {
-    return `<button style="padding:2px 8px;font-size:11px;margin:1px" onclick="openJustModal('${esc(uid)}','${date}','${tipo}')">${esc(label)}</button>`;
+    return `<button class="btn-act edit" style="margin:2px" onclick="openJustModal('${esc(uid)}','${date}','${tipo}')">${esc(label)}</button>`;
 }
 function unjustBtn(uid, date, tipo) {
-    return `<button style="padding:2px 8px;font-size:11px;background:#dc2626;margin:1px" onclick="quitarJustificacion('${esc(uid)}','${date}','${tipo}')">Quitar</button>`;
+    return `<button class="btn-act del" style="margin:2px" onclick="quitarJustificacion('${esc(uid)}','${date}','${tipo}')">Quitar</button>`;
 }
 
 const JUST_TITULOS = { falta: 'Justificar falta', atraso: 'Justificar llegada tarde', salida_temprana: 'Justificar salida temprana' };
@@ -1904,9 +2021,11 @@ function exportAsistencia() {
     window.location.href = url;
 }
 
-// Esc cierra el modal de justificación.
+// Esc cierra los modales de ficha y de justificación.
 document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
+    const modalF = document.getElementById('modalFicha');
+    if (modalF && modalF.classList.contains('open')) { closeFicha(); return; }
     const modal = document.getElementById('modalJust');
     if (modal && modal.classList.contains('open')) closeJustModal();
 });

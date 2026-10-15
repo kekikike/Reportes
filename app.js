@@ -211,23 +211,57 @@ function _todayIso() {
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-// Evalua si una entrada llega tarde respecto del horario del empleado.
+// Evalua una jornada (entrada/salida) contra el horario del empleado.
 // Devuelve null si no hay horario/dia aplicable para esa fecha.
-function _evalAtraso(entradaTs, schedule) {
-    if (!schedule || !entradaTs) return null;
-    const day = schedule.days[_isoWeekday(entradaTs)];
-    if (!day || !day.start) return null;
+function _evalHorario(entrada, salida, fecha, schedule) {
+    if (!schedule) return null;
+    const day = schedule.days[_isoWeekday(fecha)];
+    if (!day || !day.start || !day.end) return null;
     const startSec = _hhmmToSec(day.start);
-    const entSec   = _hhmmToSec(String(entradaTs).slice(11, 19));
+    const endSec   = _hhmmToSec(day.end);
+    const overnight = endSec <= startSec;
     const tol      = (Number(schedule.tolerance_min) || 1) * 60;
-    const dif      = entSec - startSec;
-    const late     = entSec > (startSec + tol - 1);
+
+    let late = false, retrasoMin = 0;
+    if (entrada) {
+        const entSec = _hhmmToSec(String(entrada).slice(11, 19));
+        if (entSec > startSec + tol - 1) {
+            late = true;
+            retrasoMin = Math.max(0, Math.floor((entSec - startSec) / 60));
+        }
+    }
+
+    let early = false, salidaMin = 0;
+    if (salida) {
+        const salSec = _hhmmToSec(String(salida).slice(11, 19));
+        const finSec = overnight ? endSec + 86400 : endSec;
+        const salRel = overnight ? salSec + 86400 : salSec;
+        if (salRel < finSec - (tol - 1)) {
+            early = true;
+            salidaMin = Math.max(0, Math.floor((finSec - salRel) / 60));
+        }
+    }
+
     return {
         esperado: String(day.start).slice(0, 5),
-        late,
-        retraso_seg: late ? dif : 0,
-        retraso_min: late ? Math.floor(dif / 60) : 0,
+        esperado_salida: String(day.end).slice(0, 5),
+        late, retrasoMin, early, salidaMin,
     };
+}
+
+// ¿Ya terminó el horario de ese día? Se usa para no marcar falta de forma
+// anticipada: la falta solo se considera cuando el turno ya pasó.
+function _horarioPasado(fecha, day, hoy) {
+    if (fecha < hoy) return true;   // día anterior: el turno ya terminó
+    if (fecha > hoy) return false;  // día futuro: todavía no aplica
+    // Hoy: solo si ya pasó la hora de fin. Los nocturnos terminan al día
+    // siguiente, así que hoy aún no han terminado.
+    const startSec = _hhmmToSec(day.start);
+    const endSec   = _hhmmToSec(day.end);
+    if (endSec <= startSec) return false;
+    const ahora = new Date();
+    const ahoraSec = ahora.getHours() * 3600 + ahora.getMinutes() * 60 + ahora.getSeconds();
+    return ahoraSec > endSec;
 }
 
 // ----------------------------------------------------------------
@@ -312,17 +346,30 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, area }) {
     const dept = userAreaMap();
     const filtroDept = String(area || '').trim();
 
-    // Horarios: para saber si cada entrada es un atraso.
+    // Horarios: para saber si la entrada/salida respeta el horario.
     const sched = loadSchedules();
+    const hoy = _todayIso();
 
     const justif = loadJustifications(desde, hasta);
     let rows = _buildJornadas(punches).map(j => {
         const d = dept[j.user_id];
         const fecha = (j.entrada || '').slice(0, 10);
-        const ev = _evalAtraso(j.entrada, sched.scheds[sched.userSched[j.user_id]]);
-        // Un atraso justificado deja de contarse como atraso (pasa a "con permiso").
-        const justificado = !!(ev && ev.late && justif[j.user_id + '|' + fecha + '|atraso']);
-        const late = !!(ev && ev.late) && !justificado;
+        const ev = _evalHorario(j.entrada, j.salida, fecha, sched.scheds[sched.userSched[j.user_id]]);
+        const jAtraso = justif[j.user_id + '|' + fecha + '|atraso'];
+        const jSalida = justif[j.user_id + '|' + fecha + '|salida_temprana'];
+        // Un atraso/salida justificada deja de contarse (pasa a "con permiso").
+        const late  = !!(ev && ev.late)  && !jAtraso;
+        const early = !!(ev && ev.early) && !jSalida;
+
+        const motivos = [];
+        if (jAtraso) motivos.push({ tipo: 'atraso', reason: jAtraso, hora: (j.entrada || '').slice(11, 16) });
+        if (jSalida) motivos.push({ tipo: 'salida_temprana', reason: jSalida, hora: (j.salida || '').slice(11, 16) });
+
+        const partes = [];
+        if (late) partes.push('Atraso');
+        if (early) partes.push('Salida temprana');
+        const estado = partes.length ? partes.join(' + ') : (motivos.length ? 'Con permiso' : 'Presente');
+
         return {
             date: fecha,
             user_id: j.user_id,
@@ -334,13 +381,94 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, area }) {
             marcaciones: j.marcaciones,
             inferida: j.inferida || 0,
             hora_esperada: ev ? ev.esperado : '',
+            esperado_salida: ev ? ev.esperado_salida : '',
             atraso: late,
-            justificado,
-            motivo: justificado ? (justif[j.user_id + '|' + fecha + '|atraso'] || '') : '',
-            retraso_min: late ? ev.retraso_min : 0,
-            retraso_seg: late ? ev.retraso_seg : 0,
+            salida_temprana: early,
+            falta: false,
+            permiso: motivos.length > 0,
+            color: motivos.length ? 'green' : '',
+            estado,
+            justificado: !!jAtraso,
+            justificada_falta: false,
+            justificada_atraso: !!jAtraso,
+            justificada_salida: !!jSalida,
+            motivo: motivos.map(m => m.reason).join(' | '),
+            motivos,
+            retraso_min: late ? ev.retrasoMin : 0,
+            retraso_seg: late ? ev.retrasoMin * 60 : 0,
+            salida_min: early ? ev.salidaMin : 0,
         };
     });
+
+    // Faltas: días de horario SIN marcas (validado SOLO con el horario del
+    // empleado). Se evalúan desde la asignación del horario y hasta hoy; una
+    // falta justificada se convierte en "Permiso" (verde).
+    const yaVistos = new Set(rows.map(r => r.user_id + '|' + r.date));
+    const nombres = Object.create(null);
+    if (Object.keys(sched.userSched).length) {
+        for (const u of db.all('SELECT user_id, MAX(name) AS name FROM users GROUP BY user_id')) {
+            nombres[u.user_id] = _cleanNameView(u.name);
+        }
+    }
+    const filtroQ = String(q || '').trim().toLowerCase();
+    const listaUsers = users ? String(users).split(',').map(s => s.trim()).filter(Boolean) : null;
+    const pisoGlobal = _addDays(hoy, -400); // techo de seguridad (máx. ~400 días)
+    const MAX_DIAS = 400;
+
+    for (const uid of Object.keys(sched.userSched)) {
+        if (user_id && String(uid) !== String(user_id)) continue;
+        if (listaUsers && listaUsers.length && !listaUsers.includes(uid)) continue;
+        if (filtroQ) {
+            const nm = String(nombres[uid] || '').toLowerCase();
+            if (!nm.includes(filtroQ) && !String(uid).toLowerCase().includes(filtroQ)) continue;
+        }
+
+        const sch = sched.scheds[sched.userSched[uid]];
+        if (!sch) continue;
+
+        let d = desde;
+        if (d < pisoGlobal) d = pisoGlobal;
+
+        const dpt = dept[uid];
+        let n = 0;
+        for (; d <= hasta && d <= hoy && n < MAX_DIAS; d = _addDays(d, 1), n++) {
+            const day = sch.days[_isoWeekday(d)];
+            if (!day || !day.start || !day.end) continue;
+            if (!_horarioPasado(d, day, hoy)) continue;
+            if (yaVistos.has(uid + '|' + d)) continue;
+
+            const jFalta = justif[uid + '|' + d + '|falta'];
+            const motivos = jFalta ? [{ tipo: 'falta', reason: jFalta, hora: null }] : [];
+            rows.push({
+                date: d,
+                user_id: uid,
+                name: nombres[uid] || uid,
+                area: dpt ? dpt.nombre : '',
+                area_codigo: dpt ? dpt.codigo : '',
+                entrada: null,
+                salida: null,
+                marcaciones: 0,
+                inferida: 0,
+                hora_esperada: String(day.start).slice(0, 5),
+                esperado_salida: String(day.end).slice(0, 5),
+                atraso: false,
+                salida_temprana: false,
+                falta: !jFalta,
+                permiso: !!jFalta,
+                color: jFalta ? 'green' : 'red',
+                estado: jFalta ? 'Permiso' : 'Falta',
+                justificado: false,
+                justificada_falta: !!jFalta,
+                justificada_atraso: false,
+                justificada_salida: false,
+                motivo: jFalta || '',
+                motivos,
+                retraso_min: 0,
+                retraso_seg: 0,
+                salida_min: 0,
+            });
+        }
+    }
 
     if (filtroDept) {
         const sinDept = ['sin', '-', 'ninguno', 'null'].includes(filtroDept.toLowerCase());
@@ -1454,12 +1582,13 @@ app.get('/api/export/csv', (req, res) => {
     const fmtDate  = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
     const q2 = s => '"' + String(s || '').replace(/"/g, '""') + '"';
 
-    const cols = ['CI', 'Nombre', 'Área', 'Entrada', 'Salida'];
+    const cols = ['CI', 'Nombre', 'Área', 'Entrada', 'Salida', 'Estado'];
     if (detallado) cols.push('Marcaciones');
 
     const linea = (r) => {
         const c = [r.user_id, q2(r.name), q2(r.area)];
         c.push((r.entrada || '').slice(11, 19), (r.salida || '').slice(11, 19));
+        c.push(q2(r.estado || ''));
         if (detallado) c.push(r.marcaciones);
         return c.join(',');
     };
@@ -1498,6 +1627,7 @@ app.get('/api/export/excel', async (req, res) => {
         { header: 'Área', key: 'area', width: 22 },
         { header: 'Entrada', key: 'entrada', width: 12 },
         { header: 'Salida', key: 'salida', width: 12 },
+        { header: 'Estado', key: 'estado', width: 18 },
     ];
     if (detallado) cols.push({ header: 'Marcaciones', key: 'marcaciones', width: 12 });
     const ncols = cols.length;
@@ -1509,6 +1639,7 @@ app.get('/api/export/excel', async (req, res) => {
         area: r.area || '',
         entrada: (r.entrada || '').slice(11, 19),
         salida: (r.salida || '').slice(11, 19),
+        estado: r.estado || '',
         marcaciones: r.marcaciones,
     }));
 
@@ -1559,8 +1690,8 @@ app.get('/api/export/pdf', (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="asistencia_${desde}_${hasta}.pdf"`);
 
-    const headers = ['CI', 'Nombre', 'Área', 'Entrada', 'Salida'];
-    const widths  = [80, 230, 150, 190, 190];
+    const headers = ['CI', 'Nombre', 'Área', 'Entrada', 'Salida', 'Estado'];
+    const widths  = [80, 210, 130, 150, 150, 130];
     if (detallado) { headers.push('Marc.'); widths.push(60); }
 
     const items = [];
@@ -1572,6 +1703,7 @@ app.get('/api/export/pdf', (req, res) => {
         }
         const cells = [r.user_id, r.name || '', r.area || '-'];
         cells.push((r.entrada || '').slice(11, 19), (r.salida || '').slice(11, 19));
+        cells.push(r.estado || '');
         if (detallado) cells.push(String(r.marcaciones));
         items.push({ type: 'row', cells });
     }
