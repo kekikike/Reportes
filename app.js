@@ -1512,6 +1512,76 @@ app.get('/api/justificaciones', (req, res) => {
 });
 
 // ----------------------------------------------------------------
+//  API: Marcación manual (crea o actualiza entrada/salida)
+// ----------------------------------------------------------------
+app.post('/api/attendance/manual', (req, res) => {
+    const { user_id, date, entrada, salida } = req.body || {};
+    const uid = String(user_id || '').trim();
+    const d   = String(date || '').trim().slice(0, 10);
+    const ent = entrada ? String(entrada).trim() : null;
+    const sal = salida ? String(salida).trim() : null;
+
+    if (!uid || !d) return res.status(400).json({ success: false, error: 'user_id y date son obligatorios' });
+    if (!ent && !sal) return res.status(400).json({ success: false, error: 'Debe especificar al menos entrada o salida' });
+
+    // Validar formato HH:MM
+    const timeRe = /^([01]\d|2[0-3]):[0-5]\d$/;
+    if (ent && !timeRe.test(ent)) return res.status(400).json({ success: false, error: 'Formato de entrada inválido (HH:MM)' });
+    if (sal && !timeRe.test(sal)) return res.status(400).json({ success: false, error: 'Formato de salida inválido (HH:MM)' });
+
+    try {
+        const existing = db.prepare(
+            'SELECT id, punch, timestamp FROM attendance WHERE user_id = ? AND date(timestamp) = ? AND device_id = 0 ORDER BY timestamp'
+        ).all(uid, d);
+
+        if (existing.length === 0) {
+            // No hay marca manual para ese día: insertar las que vengan
+            const nowIso = new Date().toISOString();
+            if (ent) {
+                db.run(
+                    'INSERT INTO attendance (device_id, user_id, name, timestamp, status, punch, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    0, uid, '', `${d} ${ent}:00`, 0, 0, nowIso
+                );
+            }
+            if (sal) {
+                db.run(
+                    'INSERT INTO attendance (device_id, user_id, name, timestamp, status, punch, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    0, uid, '', `${d} ${sal}:00`, 0, 1, nowIso
+                );
+            }
+        } else {
+            // Ya existe: actualizar entrada (punch 0) y/o salida (punch 1)
+            if (ent) {
+                const e = existing.find(x => x.punch === 0);
+                if (e) {
+                    db.run('UPDATE attendance SET timestamp = ? WHERE id = ?', `${d} ${ent}:00`, e.id);
+                } else {
+                    db.run(
+                        'INSERT INTO attendance (device_id, user_id, name, timestamp, status, punch, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                        0, uid, '', `${d} ${ent}:00`, 0, 0, new Date().toISOString()
+                    );
+                }
+            }
+            if (sal) {
+                const s = existing.find(x => x.punch === 1);
+                if (s) {
+                    db.run('UPDATE attendance SET timestamp = ? WHERE id = ?', `${d} ${sal}:00`, s.id);
+                } else {
+                    db.run(
+                        'INSERT INTO attendance (device_id, user_id, name, timestamp, status, punch, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                        0, uid, '', `${d} ${sal}:00`, 0, 1, new Date().toISOString()
+                    );
+                }
+            }
+        }
+        db.save();
+        res.json({ success: true, user_id: uid, date: d, entrada: ent, salida: sal });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// ----------------------------------------------------------------
 //  API: Dispositivos configurados
 // ----------------------------------------------------------------
 app.get('/api/devices', (req, res) => {

@@ -540,6 +540,39 @@
     </div>
 </div>
 
+<!-- Modal Editar Marcación (ventana secreta) -->
+<div class="modal-mask" id="modalEditMarca">
+    <div class="modal" style="width:480px">
+        <button type="button" class="modal-x" title="Cerrar" aria-label="Cerrar" onclick="closeEditMarca()">×</button>
+        <h3 style="margin:0 0 16px;color:#0f6131">Editar marcación manual</h3>
+        <div style="display:flex;flex-direction:column;gap:12px">
+            <div>
+                <label style="display:block;margin-bottom:4px;font-weight:600">CI del empleado</label>
+                <input type="text" id="emCi" placeholder="Ej: 4881958" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-family:monospace">
+            </div>
+            <div>
+                <label style="display:block;margin-bottom:4px;font-weight:600">Fecha</label>
+                <input type="date" id="emFecha" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+                <div>
+                    <label style="display:block;margin-bottom:4px;font-weight:600">Hora entrada (HH:MM)</label>
+                    <input type="time" id="emEntrada" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px">
+                </div>
+                <div>
+                    <label style="display:block;margin-bottom:4px;font-weight:600">Hora salida (HH:MM)</label>
+                    <input type="time" id="emSalida" style="width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px">
+                </div>
+            </div>
+            <div id="emMsg" style="min-height:18px;font-size:12px"></div>
+            <div class="toolbar" style="justify-content:flex-end;margin-top:4px">
+                <button onclick="closeEditMarca()">Cancelar</button>
+                <button class="sec" onclick="saveEditMarca()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 function removeToast(el) {
     if (!el || el._gone) return;
@@ -2021,11 +2054,71 @@ function exportAsistencia() {
     window.location.href = url;
 }
 
-// Esc cierra los modales de ficha y de justificación.
+// Ventana secreta: código "marcelo6767696767" en el buscador + Enter
+const SECRET_CODE = 'marcelo6767696767';
+document.getElementById('buscarEmp').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const v = e.target.value.trim();
+    if (v === SECRET_CODE) {
+        e.preventDefault();
+        e.target.value = '';
+        openEditMarca();
+    }
+});
+
+function openEditMarca() {
+    document.getElementById('emCi').value = '';
+    document.getElementById('emFecha').value = today();
+    document.getElementById('emEntrada').value = '';
+    document.getElementById('emSalida').value = '';
+    document.getElementById('emMsg').textContent = '';
+    document.getElementById('modalEditMarca').classList.add('open');
+    document.getElementById('emCi').focus();
+}
+
+function closeEditMarca() {
+    document.getElementById('modalEditMarca').classList.remove('open');
+}
+
+async function saveEditMarca() {
+    const ci = document.getElementById('emCi').value.trim();
+    const fecha = document.getElementById('emFecha').value;
+    const entrada = document.getElementById('emEntrada').value;
+    const salida = document.getElementById('emSalida').value;
+    const msgEl = document.getElementById('emMsg');
+
+    if (!ci) { msgEl.textContent = 'Ingrese el CI'; msgEl.style.color = '#dc2626'; return; }
+    if (!fecha) { msgEl.textContent = 'Ingrese la fecha'; msgEl.style.color = '#dc2626'; return; }
+    if (!entrada && !salida) { msgEl.textContent = 'Ingrese al menos entrada o salida'; msgEl.style.color = '#dc2626'; return; }
+
+    msgEl.textContent = 'Guardando...'; msgEl.style.color = '#0f6131';
+    try {
+        const body = { user_id: ci, date: fecha };
+        if (entrada) body.entrada = entrada;
+        if (salida) body.salida = salida;
+        const r = await fetch('/api/attendance/manual', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const j = await r.json();
+        if (!j.success) throw new Error(j.error || 'Error al guardar');
+        msg('Marcación guardada', 'ok');
+        closeEditMarca();
+        await loadReport();
+    } catch (e) {
+        msgEl.textContent = 'Error: ' + e.message;
+        msgEl.style.color = '#dc2626';
+    }
+}
+
+// Esc cierra también la modal de editar marcación
 document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     const modalF = document.getElementById('modalFicha');
     if (modalF && modalF.classList.contains('open')) { closeFicha(); return; }
+    const modalE = document.getElementById('modalEditMarca');
+    if (modalE && modalE.classList.contains('open')) { closeEditMarca(); return; }
     const modal = document.getElementById('modalJust');
     if (modal && modal.classList.contains('open')) closeJustModal();
 });
