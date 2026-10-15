@@ -9,9 +9,9 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; background: #f4f6fb; color: #1f2937; }
 
-    .header { background: #1e3a8a; color: #fff; padding: 16px 28px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+    .header { background: #0f6131; color: #fff; padding: 16px 28px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
     .header h1 { font-size: 19px; flex: 1; }
-    .header .dot { width: 11px; height: 11px; border-radius: 50%; background: #fbbf24; display: inline-block; margin-right: 6px; }
+    .header .dot { width: 11px; height: 11px; border-radius: 50%; background: #dfb444; display: inline-block; margin-right: 6px; }
     .header .hdrcfg { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .hdrcfg input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #0f172a; background: #fff; }
 
@@ -22,14 +22,16 @@
     .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
     label { font-size: 12px; color: #6b7280; display: flex; flex-direction: column; gap: 4px; }
     input, select, button { padding: 8px 11px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 14px; background: #fff; }
-    input:focus, select:focus { outline: 2px solid #93c5fd; border-color: #3b82f6; }
-    button { cursor: pointer; background: #2563eb; color: #fff; border: none; font-weight: 600; }
-    button:hover { background: #1d4ed8; }
-    button.sec { background: #16a34a; }
-    button.warn { background: #d97706; }
+    input:focus, select:focus { outline: 2px solid #9ec9ab; border-color: #0f6131; }
+    button { cursor: pointer; background: #0f6131; color: #fff; border: none; font-weight: 600; }
+    button:hover { background: #0b4a25; }
+    button.sec { background: #dfb444; color: #3a2f00; }
+    button.sec:hover { background: #c9a13a; }
+    button.warn { background: #dfb444; color: #3a2f00; }
+    button.warn:hover { background: #c9a13a; }
 
     .stats { display: flex; gap: 30px; flex-wrap: wrap; }
-    .stat b { display: block; font-size: 26px; color: #2563eb; }
+    .stat b { display: block; font-size: 26px; color: #0f6131; }
     .stat span { font-size: 12px; color: #6b7280; }
 
     .msg { padding: 12px 16px; border-radius: 7px; margin-bottom: 14px; display: none; font-size: 14px; }
@@ -38,13 +40,13 @@
 
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
-    th { background: #eef2ff; color: #1e3a8a; position: sticky; top: 0; z-index: 3; }
+    th { background: #e9f2ec; color: #0f6131; position: sticky; top: 0; z-index: 3; }
     tr:hover { background: #f8fafc; }
     .scroll { max-height: 60vh; overflow: auto; border: 1px solid #e5e7eb; border-radius: 7px; }
 
     .nav-tabs { display: flex; gap: 4px; margin-bottom: 18px; }
     .tab { padding: 9px 18px; border-radius: 7px 7px 0 0; background: #e5e7eb; cursor: pointer; font-size: 14px; }
-    .tab.active { background: #1e3a8a; color: #fff; }
+    .tab.active { background: #0f6131; color: #fff; }
     .panel { display: none; }
     .panel.active { display: block; }
 
@@ -56,15 +58,15 @@
     td.late { background: #fee2e2 !important; }
     td.late b { color: #b91c1c; }
     .rrow { cursor: pointer; }
-    .rrow:hover { background: #eef2ff; }
-    .rrow.open { background: #e0e7ff; font-weight: 600; }
+    .rrow:hover { background: #e9f2ec; }
+    .rrow.open { background: #dcefe2; font-weight: 600; }
     .sch-item { padding: 10px 12px; margin-bottom: 6px; border-radius: 6px; cursor: pointer; border: 2px solid transparent; background: #fff; }
     .sch-item:hover { background: #f8fafc; }
 
     /* Editor de horario: barra de 24 h por día */
     .daycard { padding: 8px 10px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; background: #fff; }
     .dayrow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-    .dayrow .dname { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; color: #1e3a8a; width: 96px; cursor: pointer; }
+    .dayrow .dname { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; color: #0f6131; width: 96px; cursor: pointer; }
     .dayrow input[type=time] { padding: 3px 6px; font-size: 13px; border: 1px solid #d1d5db; border-radius: 6px; }
     .dayrow .sep { color: #9ca3af; font-size: 12px; }
     .dayrow .dur { margin-left: auto; font-size: 11px; color: #6b7280; white-space: nowrap; }
@@ -73,10 +75,10 @@
     .daybar-grid { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(24, 1fr); pointer-events: none; }
     .daybar-grid span { border-right: 1px solid #eef2f7; }
     .daybar-grid span:nth-child(3n) { border-right-color: #e2e8f0; }
-    .daybar-sel { position: absolute; top: 0; bottom: 0; background: rgba(37,99,235,.30); pointer-events: none; display: none; }
-    .daybar-sel.over { background: rgba(217,119,6,.35); }
-    .daybar-handle { position: absolute; top: 0; bottom: 0; width: 8px; background: #2563eb; border-radius: 3px; transform: translateX(-50%); pointer-events: none; box-shadow: 0 0 0 1px #fff inset; }
-    .daybar-handle.over { background: #d97706; }
+    .daybar-sel { position: absolute; top: 0; bottom: 0; background: rgba(15,97,49,.30); pointer-events: none; display: none; }
+    .daybar-sel.over { background: rgba(223,180,68,.45); }
+    .daybar-handle { position: absolute; top: 0; bottom: 0; width: 8px; background: #0f6131; border-radius: 3px; transform: translateX(-50%); pointer-events: none; box-shadow: 0 0 0 1px #fff inset; }
+    .daybar-handle.over { background: #dfb444; }
     .daybar-labels { display: flex; justify-content: space-between; font-size: 10px; color: #9ca3af; margin-top: 2px; }
 
     /* Combobox de búsqueda de plantilla base */
@@ -86,20 +88,20 @@
     .sched-combo-list.open { display: block; }
     .sched-combo-item { padding: 7px 10px; cursor: pointer; border-bottom: 1px solid #f1f5f9; display: flex; flex-direction: column; gap: 2px; }
     .sched-combo-item:last-child { border-bottom: none; }
-    .sched-combo-item:hover, .sched-combo-item.sel { background: #eff6ff; }
-    .sched-combo-item b { font-size: 13px; color: #1e3a8a; }
+    .sched-combo-item:hover, .sched-combo-item.sel { background: #eaf5ee; }
+    .sched-combo-item b { font-size: 13px; color: #0f6131; }
     .sched-combo-item span { font-size: 11px; color: #6b7280; }
     .sched-combo-empty { padding: 9px 10px; font-size: 12px; color: #9ca3af; }
-    .dateRow td { background: #eef2ff; font-weight: 700; color: #1e3a8a; font-size: 13px; position: sticky; top: var(--es-thead-h, 38px); z-index: 2; box-shadow: 0 1px 0 #c7d2fe; }
+    .dateRow td { background: #e9f2ec; font-weight: 700; color: #0f6131; font-size: 13px; position: sticky; top: var(--es-thead-h, 38px); z-index: 2; box-shadow: 0 1px 0 #cfe3d6; }
 
     .urow { cursor: pointer; }
-    .urow:hover { background: #eef2ff; }
-    .urow.open { background: #e0e7ff; font-weight: 600; }
+    .urow:hover { background: #e9f2ec; }
+    .urow.open { background: #dcefe2; font-weight: 600; }
     .mrow td { padding: 0 !important; background: #f8fafc; }
     .mrow .marks { padding: 8px 12px 14px 12px; }
     table.sub { width: 100%; border-collapse: collapse; font-size: 13px; }
     table.sub th, table.sub td { padding: 6px 10px; border-bottom: 1px solid #e5e7eb; text-align: left; }
-    table.sub th { background: #eef2ff; color: #1e3a8a; }
+    table.sub th { background: #e9f2ec; color: #0f6131; }
 
     .userlist { max-height: 250px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 7px; margin-top: 10px; background: #fff; }
     .userlist label.ui { display: flex; flex-direction: row; gap: 10px; align-items: center; padding: 7px 10px; cursor: pointer; border-bottom: 1px solid #f1f5f9; font-size: 13px; white-space: nowrap; }
@@ -113,25 +115,37 @@
     .modal { background: #fff; border-radius: 12px; padding: 22px; width: 600px; max-width: 96vw; box-shadow: 0 10px 40px rgba(0,0,0,.25); position: relative; }
     .modal-x { position: absolute; top: 10px; right: 12px; width: 30px; height: 30px; border: none; border-radius: 50%; background: #dc2626; color: #fff; font-size: 15px; font-weight: 700; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(220,38,38,.35); }
     .modal-x:hover { background: #b91c1c; }
-    .modal h2 { font-size: 17px; margin-bottom: 6px; color: #1e3a8a; }
+    .modal h2 { font-size: 17px; margin-bottom: 6px; color: #0f6131; }
     .modal .radio { flex-direction: row; align-items: center; gap: 6px; cursor: pointer; }
-    .modal .radio input { accent-color: #2563eb; }
+    .modal .radio input { accent-color: #0f6131; }
+    /* Avisos flotantes (toast): tarjeta que baja desde arriba, en la esquina superior derecha */
+    .toast-box { position: fixed; top: 16px; right: 16px; z-index: 400; display: flex; flex-direction: column; gap: 10px; max-width: min(380px, 92vw); }
+    .toast { display: flex; align-items: flex-start; gap: 10px; background: #fff; border-left: 5px solid #0f6131; border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.20); padding: 12px 14px; font-size: 14px; color: #1f2937; animation: toastDown .28s cubic-bezier(.2,.8,.2,1); }
+    .toast.ok { border-left-color: #0f6131; }
+    .toast.err { border-left-color: #b91c1c; }
+    .toast .toast-txt { flex: 1; line-height: 1.35; word-break: break-word; }
+    .toast .toast-x { background: transparent; color: #9ca3af; border: none; font-size: 16px; line-height: 1; padding: 0 2px; font-weight: 700; }
+    .toast .toast-x:hover { background: transparent; color: #4b5563; }
+    .toast.hide { animation: toastUp .24s ease-in forwards; }
+    @keyframes toastDown { from { transform: translateY(-130%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes toastUp { to { transform: translateY(-20px); opacity: 0; } }
 </style>
 </head>
 <body>
+
+<div class="toast-box" id="toastBox"></div>
 
 <div class="header">
     <h1><span class="dot" id="statusDot"></span>ZKTeco Reportes</h1>
     <div class="hdrcfg">
         <input type="text" id="hIp" placeholder="IP biométrico (ej: 192.168.118.172)">
         <input type="text" id="hPort" placeholder="Puerto (4370)" style="width:80px">
-        <button onclick="addQuickDevice()" title="Agregar este biométrico a la lista y sincronizarlo">➕ Agregar</button>
-        <button class="sec" onclick="syncDevice()">📥 Sincronizar todos</button>
+        <button onclick="addQuickDevice()" title="Agregar este biométrico a la lista y sincronizarlo">Agregar</button>
+        <button class="sec" onclick="syncDevice()">Sincronizar todos</button>
     </div>
 </div>
 
 <div class="container">
-    <div id="msg"></div>
 
     <div class="nav-tabs">
         <div class="tab active" data-tab="es" onclick="showTab('es')">Entradas / Salidas</div>
@@ -153,11 +167,11 @@
                 <label>Hasta <input type="date" id="hasta"></label>
                 <label>Área <select id="fDepto" style="min-width:170px"><option value="">Todas las áreas</option></select></label>
                 <input type="text" id="buscarEmp" placeholder="Buscar por CI o nombre" style="flex:1;min-width:180px">
-                <label style="display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;font-weight:600;color:#1e3a8a" title="Muestra cada día con las entradas ordenadas del más temprano al más tarde">
+                <label style="display:flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;font-weight:600;color:#0f6131" title="Muestra cada día con las entradas ordenadas del más temprano al más tarde">
                     <input type="checkbox" id="ordenEntrada" onchange="loadReport()"> Por hora de entrada
                 </label>
                 <button onclick="loadReport()">Consultar</button>
-                <button class="warn" onclick="openExport()">⬇ Exportar reporte</button>
+                <button class="warn" onclick="openExport()">Exportar reporte</button>
             </div>
         </div>
 
@@ -215,7 +229,7 @@
 
         <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
-                <h4 style="margin:0;font-size:15px;color:#1e3a8a">Cantidad de atrasos por persona</h4>
+                <h4 style="margin:0;font-size:15px;color:#0f6131">Cantidad de atrasos por persona</h4>
                 <button class="warn" onclick="exportRetrasos()">Exportar a Excel</button>
             </div>
             <div class="scroll">
@@ -230,7 +244,7 @@
 
         <div class="card" id="cardRetrasoDet" style="display:none">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
-                <h4 style="margin:0;font-size:15px;color:#1e3a8a">Días con atraso: <span id="detRetrasoNombre"></span></h4>
+                <h4 style="margin:0;font-size:15px;color:#0f6131">Días con atraso: <span id="detRetrasoNombre"></span></h4>
                 <button class="warn" onclick="exportRetrasoDetalle()">Exportar a Excel</button>
             </div>
             <div class="scroll">
@@ -260,7 +274,7 @@
 
         <div class="card">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
-                <h4 style="margin:0;font-size:15px;color:#1e3a8a">Resumen por empleado</h4>
+                <h4 style="margin:0;font-size:15px;color:#0f6131">Resumen por empleado</h4>
             </div>
             <div class="scroll">
                 <table>
@@ -274,7 +288,7 @@
 
         <div class="card" id="cardAsistDet" style="display:none">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
-                <h4 style="margin:0;font-size:15px;color:#1e3a8a">Detalle por día: <span id="detAsistNombre"></span></h4>
+                <h4 style="margin:0;font-size:15px;color:#0f6131">Detalle por día: <span id="detAsistNombre"></span></h4>
                 <span class="hint" id="detAsistHorario" style="margin:0"></span>
             </div>
             <div class="scroll">
@@ -294,8 +308,8 @@
             <p class="hint" style="margin:0 0 14px">Crea horarios (con los días y horas de cada día) y asígnalos a los empleados. Cada empleado puede tener un solo horario.</p>
 
             <!-- Crear horario -->
-            <div style="margin-bottom:16px;padding:14px;border:2px solid #93c5fd;background:#eff6ff;border-radius:10px">
-                <h4 style="margin:0 0 10px;font-size:15px;color:#1e3a8a">Crear nuevo horario</h4>
+            <div style="margin-bottom:16px;padding:14px;border:2px solid #9ec9ab;background:#eaf5ee;border-radius:10px">
+                <h4 style="margin:0 0 10px;font-size:15px;color:#0f6131">Crear nuevo horario</h4>
                 <div class="toolbar" style="flex-wrap:wrap;gap:10px;margin:0">
                     <input type="text" id="newSchName" placeholder="Nombre del horario (ej: Administrativo)" style="flex:1;min-width:220px" onkeydown="handleSchNameKey(event)" autocomplete="off">
                     <button onclick="openScheduleModal()" style="padding:11px 26px;font-size:15px;font-weight:700">Crear horario</button>
@@ -306,14 +320,14 @@
             <!-- Lista de horarios + asignación -->
             <div style="display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start">
                 <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:400px">
-                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">Horarios</h4>
+                    <h4 style="margin:0 0 10px;font-size:14px;color:#0f6131">Horarios</h4>
                     <div id="schList" style="max-height:420px;overflow:auto"></div>
                     <div id="schEmpty" style="display:none;color:#9ca3af;font-size:13px;padding:20px;text-align:center">No hay horarios. Crea uno arriba.</div>
                 </div>
 
                 <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:400px">
-                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">Asignar empleados al horario</h4>
-                    <div id="schAssignHeader" style="display:none;margin-bottom:10px;padding:8px 12px;background:#eef2ff;border-radius:6px">
+                    <h4 style="margin:0 0 10px;font-size:14px;color:#0f6131">Asignar empleados al horario</h4>
+                    <div id="schAssignHeader" style="display:none;margin-bottom:10px;padding:8px 12px;background:#e9f2ec;border-radius:6px">
                         <b id="assignSchName"></b>
                         <div id="assignSchDays" style="font-size:12px;color:#475569;margin-top:4px"></div>
                     </div>
@@ -328,7 +342,7 @@
     <!-- Panel Agregar Usuario -->
     <div class="panel" id="panel-adduser">
         <div class="card">
-            <h3 style="margin:0 0 6px;font-size:16px;color:#1e3a8a">Agregar usuario al biométrico (K40 Pro)</h3>
+            <h3 style="margin:0 0 6px;font-size:16px;color:#0f6131">Agregar usuario al biométrico (K40 Pro)</h3>
             <p class="hint" style="margin:0 0 16px">Se sube solo el <b>CI</b> y el nombre (<b>primer apellido + primer nombre</b>). El <b>área</b> se asigna después en la pestaña <b>Áreas</b>.</p>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;max-width:760px">
                 <label>CI / Código
@@ -342,7 +356,7 @@
                 </label>
             </div>
             <div style="margin-top:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-                <button class="sec" onclick="addUserToBiometrico()" style="padding:11px 26px;font-size:15px;font-weight:700">➕ Subir al biométrico</button>
+                <button class="sec" onclick="addUserToBiometrico()" style="padding:11px 26px;font-size:15px;font-weight:700">Subir al biométrico</button>
                 <span class="hint" style="margin:0">Si el equipo no acepta el alta, se sincroniza automáticamente.</span>
             </div>
         </div>
@@ -354,8 +368,8 @@
             <p class="hint" style="margin:0 0 14px">Gestiona tus áreas y asigna empleados a cada una.</p>
             
             <!-- Crear área -->
-            <div style="margin-bottom:16px;padding:14px;border:2px solid #93c5fd;background:#eff6ff;border-radius:10px">
-                <h4 style="margin:0 0 10px;font-size:15px;color:#1e3a8a">Crear nueva área</h4>
+            <div style="margin-bottom:16px;padding:14px;border:2px solid #9ec9ab;background:#eaf5ee;border-radius:10px">
+                <h4 style="margin:0 0 10px;font-size:15px;color:#0f6131">Crear nueva área</h4>
                 <div class="toolbar" style="flex-wrap:wrap;gap:10px;margin:0">
                     <input type="text" id="newDeptName" placeholder="Nombre del área (ej: Mantenimiento)" style="flex:1;min-width:200px" onkeydown="handleDeptNameKey(event)" autocomplete="off">
                     <input type="text" id="newDeptCode" placeholder="Código (ej: MAN1)" style="width:150px;text-transform:uppercase" autocomplete="off">
@@ -369,7 +383,7 @@
                 
                 <!-- Columna izquierda: Lista de áreas -->
                 <div style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:400px">
-                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">Áreas</h4>
+                    <h4 style="margin:0 0 10px;font-size:14px;color:#0f6131">Áreas</h4>
                     <div id="deptList" style="max-height:350px;overflow:auto"></div>
                     <div id="deptEmpty" style="display:none;color:#9ca3af;font-size:13px;padding:20px;text-align:center">
                         No hay áreas. Crea una arriba.
@@ -378,8 +392,8 @@
 
                 <!-- Columna derecha: Asignar usuarios al área seleccionada -->
                 <div style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:12px;min-height:400px">
-                    <h4 style="margin:0 0 10px;font-size:14px;color:#1e3a8a">Asignar usuarios al área</h4>
-                    <div id="deptAssignHeader" style="display:none;margin-bottom:10px;padding:8px 12px;background:#eef2ff;border-radius:6px">
+                    <h4 style="margin:0 0 10px;font-size:14px;color:#0f6131">Asignar usuarios al área</h4>
+                    <div id="deptAssignHeader" style="display:none;margin-bottom:10px;padding:8px 12px;background:#e9f2ec;border-radius:6px">
                         <b id="assignDeptName"></b> <span style="color:#6b7280;font-weight:normal" id="assignDeptCode"></span>
                     </div>
                     <div id="assignEmpty" style="color:#9ca3af;font-size:13px;padding:20px;text-align:center">
@@ -442,7 +456,7 @@
 <!-- Modal Horario -->
 <div class="modal-mask" id="modalHorario">
     <div class="modal" style="width:780px;max-height:92vh;overflow:auto">
-        <button type="button" class="modal-x" title="Cerrar" aria-label="Cerrar" onclick="closeScheduleModal()">✕</button>
+        <button type="button" class="modal-x" title="Cerrar" aria-label="Cerrar" onclick="closeScheduleModal()">×</button>
         <h2 id="schModalTitle">Nuevo horario</h2>
         <div id="schModalMsg" class="msg" style="margin-bottom:10px"></div>
         <label style="margin-bottom:12px;display:block">Nombre
@@ -450,9 +464,9 @@
         </label>
 
         <div class="toolbar" style="gap:8px;margin-bottom:12px;flex-wrap:wrap">
-            <button type="button" class="sec" style="background:#0ea5e9" onclick="applyMondayToAll()" title="Copia el horario del lunes a todos los días restantes">⬇ Aplicar lunes a todos</button>
+            <button type="button" class="sec" onclick="applyMondayToAll()" title="Copia el horario del lunes a todos los días restantes">Aplicar lunes a todos</button>
             <span class="sched-combo" id="schCombo">
-                <input type="text" id="schPlantillaSearch" placeholder="🔎 Buscar plantilla base…" autocomplete="off"
+                <input type="text" id="schPlantillaSearch" placeholder="Buscar plantilla base…" autocomplete="off"
                        oninput="onPlantillaInput()" onfocus="renderPlantillaDropdown()" onkeydown="plantillaKey(event)">
                 <div class="sched-combo-list" id="schPlantillaList"></div>
             </span>
@@ -472,7 +486,7 @@
 <!-- Modal Justificación -->
 <div class="modal-mask" id="modalJust">
     <div class="modal" style="width:520px">
-        <button type="button" class="modal-x" title="Cerrar" aria-label="Cerrar" onclick="closeJustModal()">✕</button>
+        <button type="button" class="modal-x" title="Cerrar" aria-label="Cerrar" onclick="closeJustModal()">×</button>
         <h2 id="justTitulo">Justificar</h2>
         <p class="hint" id="justSub" style="margin:0 0 4px"></p>
         <label style="display:block;margin-top:10px">Motivo / descripción
@@ -487,10 +501,42 @@
 </div>
 
 <script>
+function removeToast(el) {
+    if (!el || el._gone) return;
+    el._gone = true;
+    if (el._timer) clearTimeout(el._timer);
+    el.classList.add('hide');
+    setTimeout(() => el.remove(), 240);
+}
+
+// Aviso flotante: una tarjeta que baja desde arriba, en la esquina superior derecha.
+function toast(text, type) {
+    const box = document.getElementById('toastBox');
+    if (!box) return;
+    const el = document.createElement('div');
+    el.className = 'toast ' + (type === 'err' ? 'err' : 'ok');
+
+    const span = document.createElement('span');
+    span.className = 'toast-txt';
+    span.textContent = text || '';
+
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'toast-x';
+    x.setAttribute('aria-label', 'Cerrar');
+    x.textContent = '×';
+    x.onclick = () => removeToast(el);
+
+    el.appendChild(span);
+    el.appendChild(x);
+    box.appendChild(el);
+    el._timer = setTimeout(() => removeToast(el), type === 'err' ? 7000 : 4500);
+}
+
+// Los avisos que antes aparecian en la franja superior ahora se muestran como
+// tarjetas flotantes arriba a la derecha.
 function msg(text, type) {
-    const el = document.getElementById('msg');
-    el.className = 'msg ' + type;
-    el.textContent = text;
+    toast(text, type);
 }
 
 function showTab(name) {
@@ -511,13 +557,13 @@ async function syncDevice() {
             const detalle = j.results.map(x => x.success
                 ? `${x.device.ip}: ${x.records} marcas${x.incremental ? ' (incremental)' : ''}${x.conArea ? `, ${x.conArea} con área` : ''}`
                 : `${x.device.ip}: falló (${x.error})`).join(' — ');
-            msg('✅ ' + j.message + ' | ' + detalle, 'ok');
+            msg('' + j.message + ' | ' + detalle, 'ok');
             loadUsers(); loadDepartments(); loadReport(); loadDevices();
         } else {
-            msg('❌ Error: ' + j.error, 'err');
+            msg('Error: ' + j.error, 'err');
         }
     } catch (e) {
-        msg('❌ No se pudo sincronizar: ' + e.message, 'err');
+        msg('No se pudo sincronizar: ' + e.message, 'err');
     }
     checkStatus();
 }
@@ -528,15 +574,15 @@ async function syncOne(ip) {
         const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip }) });
         const j = await r.json();
         if (j.success) {
-            msg(`✅ ${j.device.ip}: ${j.users} usuarios, ${j.records} registros de marca`
+            msg(`${j.device.ip}: ${j.users} usuarios, ${j.records} registros de marca`
                 + (j.conArea ? `, ${j.conArea} con área` : '')
                 + (j.areasSinNombre ? `. Asigna el nombre de ${j.areasSinNombre} código(s) en la pestaña Áreas.` : '.'), 'ok');
             loadUsers(); loadDepartments(); loadReport(); loadDevices();
         } else {
-            msg('❌ ' + ip + ': ' + j.error, 'err');
+            msg('' + ip + ': ' + j.error, 'err');
         }
     } catch (e) {
-        msg('❌ No se pudo sincronizar ' + ip + ': ' + e.message, 'err');
+        msg('No se pudo sincronizar ' + ip + ': ' + e.message, 'err');
     }
     checkStatus();
 }
@@ -547,22 +593,22 @@ async function addQuickDevice() {
     if (!ip) { msg('Escribe una IP para agregarla', 'err'); return; }
     const r = await fetch('/api/devices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Biométrico ' + ip, ip, port }) });
     const j = await r.json();
-    if (j.id) { msg('✅ Dispositivo ' + ip + ' agregado', 'ok'); loadDevices(); syncOne(ip); }
-    else msg('❌ No se pudo agregar', 'err');
+    if (j.id) { msg('Dispositivo ' + ip + ' agregado', 'ok'); loadDevices(); syncOne(ip); }
+    else msg('No se pudo agregar', 'err');
 }
 
 async function deleteDevice(id) {
     if (!confirm('¿Eliminar este dispositivo y TODOS sus registros?')) return;
     const r = await fetch('/api/devices/' + id, { method: 'DELETE' });
     const j = await r.json();
-    msg(j.success ? '✅ Dispositivo eliminado' : '❌ Error al eliminar', j.success ? 'ok' : 'err');
+    msg(j.success ? 'Dispositivo eliminado' : 'Error al eliminar', j.success ? 'ok' : 'err');
     loadUsers(); loadReport(); loadDevices(); checkStatus();
 }
 
 async function toggleDevice(id) {
     const r = await fetch('/api/devices/' + id + '/toggle', { method: 'POST' });
     const j = await r.json();
-    if (j.success) msg(j.active ? '✅ Dispositivo activado' : '⏸ Dispositivo desactivado', 'ok');
+    if (j.success) msg(j.active ? 'Dispositivo activado' : 'Dispositivo desactivado', 'ok');
     loadDevices(); checkStatus();
 }
 
@@ -580,7 +626,7 @@ async function checkStatus() {
             } catch (e) { return false; }
         }));
         const ok = res.filter(Boolean).length;
-        dot.style.background = ok === res.length ? '#4ade80' : ok > 0 ? '#fbbf24' : '#f87171';
+        dot.style.background = ok === res.length ? '#4ade80' : ok > 0 ? '#dfb444' : '#f87171';
     } catch (e) {
         dot.style.background = '#f87171';
     }
@@ -620,11 +666,11 @@ async function addUserToBiometrico() {
             body: JSON.stringify({ user_id, apellido, nombre })
         });
         const j = await r.json();
-        if (!j.success) { msg('❌ ' + (j.error || 'No se pudo agregar'), 'err'); return; }
+        if (!j.success) { msg('' + (j.error || 'No se pudo agregar'), 'err'); return; }
 
-        if (j.uploaded)       msg(`✅ ${j.message}`, 'ok');
-        else if (j.synced)    msg(`⚠ ${j.message}`, 'err');
-        else                  msg(`⚠ ${j.warning || j.message}`, 'err');
+        if (j.uploaded)       msg(`${j.message}`, 'ok');
+        else if (j.synced)    msg(`${j.message}`, 'err');
+        else                  msg(`${j.warning || j.message}`, 'err');
 
         document.getElementById('addUserId').value = '';
         document.getElementById('addUserApe').value = '';
@@ -632,7 +678,7 @@ async function addUserToBiometrico() {
         document.getElementById('addUserId').focus();
         loadUsers(); loadDepartments(); loadDevices();
     } catch (e) {
-        msg('❌ No se pudo subir: ' + e.message, 'err');
+        msg('No se pudo subir: ' + e.message, 'err');
     }
     checkStatus();
 }
@@ -643,7 +689,7 @@ function handleAddUserKey(e) {
 
 function openExport() {
     const { desde, hasta } = fechaRange();
-    document.getElementById('expRango').textContent = `${desde} → ${hasta}`;
+    document.getElementById('expRango').textContent = `${desde} – ${hasta}`;
 
     // Mostrar claramente el área que se va a exportar (dentro de la frase, sin repetir).
     const selArea = document.getElementById('fDepto');
@@ -814,13 +860,13 @@ function renderDeptList() {
              style="padding:10px 12px;margin-bottom:6px;border-radius:6px;cursor:pointer;border:2px solid transparent;background:${d.asignado ? '#f0fdf4' : '#fff'};transition:all .15s"
              onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='${d.asignado ? '#f0fdf4' : '#fff'}'">
             <div style="display:flex;justify-content:space-between;align-items:center">
-                <span style="font-weight:600;color:#1e3a8a;font-size:14px">${esc(d.nombre)}</span>
+                <span style="font-weight:600;color:#0f6131;font-size:14px">${esc(d.nombre)}</span>
                 <span style="font-size:11px;color:#6b7280;background:#e5e7eb;padding:2px 6px;border-radius:4px">${esc(d.codigo)}</span>
             </div>
             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:12px">
                 <span style="color:#6b7280">${d.empleados || 0} usuarios</span>
                 <span style="display:flex;gap:4px">
-                    <button onclick="event.stopPropagation(); editDept('${esc(d.codigo)}')" style="padding:2px 8px;font-size:11px;background:#2563eb;color:#fff;border:none;border-radius:4px">Editar</button>
+                    <button onclick="event.stopPropagation(); editDept('${esc(d.codigo)}')" style="padding:2px 8px;font-size:11px;background:#0f6131;color:#fff;border:none;border-radius:4px">Editar</button>
                     <button onclick="event.stopPropagation(); delDept('${esc(d.codigo)}')" style="padding:2px 8px;font-size:11px;background:#dc2626;color:#fff;border:none;border-radius:4px">Eliminar</button>
                 </span>
             </div>
@@ -837,8 +883,8 @@ function selectDept(code) {
     
     // Actualizar UI - resaltar seleccionado
     document.querySelectorAll('.dept-item').forEach(el => {
-        el.style.borderColor = el.dataset.code === code ? '#2563eb' : 'transparent';
-        el.style.background = el.dataset.code === code ? '#eff6ff' : (el.dataset.code === code ? '#eff6ff' : (el.style.background));
+        el.style.borderColor = el.dataset.code === code ? '#0f6131' : 'transparent';
+        el.style.background = el.dataset.code === code ? '#eaf5ee' : (el.dataset.code === code ? '#eaf5ee' : (el.style.background));
     });
     
     // Mostrar panel de asignación
@@ -883,7 +929,7 @@ function renderAssignUserList() {
             listEl.innerHTML = filtered.map(u => {
                 const isAssigned = u.area_codigo === selectedDeptCode;
                 return `
-                    <label class="ui" style="padding:8px 10px;cursor:pointer;border-radius:6px;background:${isAssigned ? '#dbeafe' : '#fff'};border:1px solid ${isAssigned ? '#93c5fd' : '#e5e7eb'}">
+                    <label class="ui" style="padding:8px 10px;cursor:pointer;border-radius:6px;background:${isAssigned ? '#dcefe2' : '#fff'};border:1px solid ${isAssigned ? '#9ec9ab' : '#e5e7eb'}">
                         <input type="checkbox" class="ck" value="${esc(u.user_id)}" ${isAssigned ? 'checked' : ''} 
                                onchange="toggleUserArea('${esc(u.user_id)}', this.checked)">
                         <span style="display:flex;flex-direction:column;gap:2px">
@@ -917,15 +963,15 @@ async function toggleUserArea(userId, assigned) {
         if (!j.success) throw new Error(j.error || 'Error');
 
         msg(assigned
-            ? `✅ ${nombre} se asignó al área "${areaNombre}"`
-            : `✅ ${nombre} se quitó del área "${areaNombre}"`, 'ok');
+            ? `${nombre} se asignó al área "${areaNombre}"`
+            : `${nombre} se quitó del área "${areaNombre}"`, 'ok');
 
         // Actualizar contador visual
         await loadDepartments();
         // Re-renderizar lista manteniendo búsqueda
         renderAssignUserList();
     } catch (e) {
-        msg('❌ ' + e.message, 'err');
+        msg('' + e.message, 'err');
         // Revertir checkbox
         renderAssignUserList();
     }
@@ -958,12 +1004,12 @@ async function createDept() {
         });
         const j = await r.json();
         if (!j.success) throw new Error(j.error || 'Error');
-        msg(`✅ Área "${name}" (código ${code}) creada`, 'ok');
+        msg(`Área "${name}" (código ${code}) creada`, 'ok');
         document.getElementById('newDeptCode').value = '';
         document.getElementById('newDeptName').value = '';
         await loadDepartments();
     } catch (e) {
-        msg('❌ ' + e.message, 'err');
+        msg('' + e.message, 'err');
     }
 }
 
@@ -982,10 +1028,10 @@ async function editDept(code) {
         });
         const j = await r.json();
         if (!j.success) throw new Error(j.error || 'Error');
-        msg(`✅ Área renombrada a "${newName.trim()}"`, 'ok');
+        msg(`Área renombrada a "${newName.trim()}"`, 'ok');
         await loadDepartments();
     } catch (e) {
-        msg('❌ ' + e.message, 'err');
+        msg('' + e.message, 'err');
     }
 }
 
@@ -997,7 +1043,7 @@ async function delDept(code) {
         selectedDeptCode = null;
         await loadDepartments();
     } catch (e) {
-        msg('❌ ' + e.message, 'err');
+        msg('' + e.message, 'err');
     }
 }
 
@@ -1045,7 +1091,7 @@ async function addDevice() {
     if (!name || !ip) { msg('Nombre e IP requeridos', 'err'); return; }
     const r = await fetch('/api/devices', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name, ip, port, password: pass }) });
     const j = await r.json();
-    msg(j.id ? '✅ Dispositivo agregado' : '❌ Error', j.id ? 'ok' : 'err');
+    msg(j.id ? 'Dispositivo agregado' : 'Error', j.id ? 'ok' : 'err');
     loadDevices();
     if (j.id) syncOne(ip);
 }
@@ -1056,7 +1102,7 @@ async function setDevicePassword(id, ip) {
     const pw = parseInt(raw) || 0;
     const r = await fetch('/api/devices/' + id + '/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ password: pw }) });
     const j = await r.json();
-    msg(j.success ? '✅ Clave guardada para ' + ip : '❌ Error al guardar clave', j.success ? 'ok' : 'err');
+    msg(j.success ? 'Clave guardada para ' + ip : 'Error al guardar clave', j.success ? 'ok' : 'err');
     loadDevices();
 }
 
@@ -1128,19 +1174,19 @@ function renderSchList() {
     el.innerHTML = ALL_SCHEDULES.map(s => `
         <div class="sch-item" data-id="${s.id}" onclick="selectSchedule(${s.id})">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-                <span style="font-weight:600;color:#1e3a8a;font-size:14px">${esc(s.name)}</span>
+                <span style="font-weight:600;color:#0f6131;font-size:14px">${esc(s.name)}</span>
                 <span style="font-size:11px;color:#6b7280;background:#e5e7eb;padding:2px 6px;border-radius:4px;white-space:nowrap">${s.empleados} empleados</span>
             </div>
             <div style="font-size:11px;color:#6b7280;margin-top:4px">${esc(schDaysText(s))}</div>
             <div style="display:flex;gap:4px;justify-content:flex-end;margin-top:6px">
-                <button onclick="event.stopPropagation(); openScheduleModal(${s.id})" style="padding:2px 8px;font-size:11px;background:#2563eb;color:#fff;border:none;border-radius:4px">Editar</button>
+                <button onclick="event.stopPropagation(); openScheduleModal(${s.id})" style="padding:2px 8px;font-size:11px;background:#0f6131;color:#fff;border:none;border-radius:4px">Editar</button>
                 <button onclick="event.stopPropagation(); delSchedule(${s.id})" style="padding:2px 8px;font-size:11px;background:#dc2626;color:#fff;border:none;border-radius:4px">Eliminar</button>
             </div>
         </div>`).join('');
     document.querySelectorAll('.sch-item').forEach(item => {
         const on = Number(item.dataset.id) === selectedScheduleId;
-        item.style.borderColor = on ? '#2563eb' : 'transparent';
-        item.style.background = on ? '#eff6ff' : '#fff';
+        item.style.borderColor = on ? '#0f6131' : 'transparent';
+        item.style.background = on ? '#eaf5ee' : '#fff';
     });
 }
 
@@ -1158,8 +1204,8 @@ function selectSchedule(id) {
     selectedScheduleId = id;
     document.querySelectorAll('.sch-item').forEach(item => {
         const on = Number(item.dataset.id) === id;
-        item.style.borderColor = on ? '#2563eb' : 'transparent';
-        item.style.background = on ? '#eff6ff' : '#fff';
+        item.style.borderColor = on ? '#0f6131' : 'transparent';
+        item.style.background = on ? '#eaf5ee' : '#fff';
     });
     document.getElementById('schAssignHeader').style.display = 'block';
     document.getElementById('schAssignEmpty').style.display = 'none';
@@ -1193,7 +1239,7 @@ function renderAssignScheduleList() {
                 const isAssigned = u.schedule_id === selectedScheduleId;
                 const otro = (u.schedule && !isAssigned) ? ' · horario: ' + esc(u.schedule) : '';
                 return `
-                    <label class="ui" style="padding:8px 10px;cursor:pointer;border-radius:6px;background:${isAssigned ? '#dbeafe' : '#fff'};border:1px solid ${isAssigned ? '#93c5fd' : '#e5e7eb'}">
+                    <label class="ui" style="padding:8px 10px;cursor:pointer;border-radius:6px;background:${isAssigned ? '#dcefe2' : '#fff'};border:1px solid ${isAssigned ? '#9ec9ab' : '#e5e7eb'}">
                         <input type="checkbox" class="ck" value="${esc(u.user_id)}" ${isAssigned ? 'checked' : ''}
                                onchange="toggleUserSchedule('${esc(u.user_id)}', this.checked)">
                         <span style="display:flex;flex-direction:column;gap:2px">
@@ -1224,13 +1270,13 @@ async function toggleUserSchedule(userId, assigned) {
         if (!j.success) throw new Error(j.error || 'Error');
 
         msg(assigned
-            ? `✅ ${nombre} se asignó al horario "${schNombre}"`
-            : `✅ ${nombre} se quitó del horario "${schNombre}"`, 'ok');
+            ? `${nombre} se asignó al horario "${schNombre}"`
+            : `${nombre} se quitó del horario "${schNombre}"`, 'ok');
 
         await loadSchedules();
         renderAssignScheduleList();
     } catch (e) {
-        msg('❌ ' + e.message, 'err');
+        msg('' + e.message, 'err');
         renderAssignScheduleList();
     }
 }
@@ -1281,7 +1327,7 @@ function buildSchDayRows() {
                     ${DIAS[d]}
                 </label>
                 <input type="time" class="schDayStart" data-day="${d}" value="${minToHHMM(schDayState[d].start)}" onchange="onDayTimeInput(${d})">
-                <span class="sep">→</span>
+                <span class="sep">–</span>
                 <input type="time" class="schDayEnd" data-day="${d}" value="${minToHHMM(schDayState[d].end)}" onchange="onDayTimeInput(${d})">
                 <span class="dur" id="dur-${d}"></span>
             </div>
@@ -1595,14 +1641,14 @@ async function saveSchedule() {
         const j = await r.json();
         if (!j.success) throw new Error(j.error || 'Error');
 
-        msg(editingScheduleId ? `✅ Horario "${name}" actualizado` : `✅ Horario "${name}" creado`, 'ok');
+        msg(editingScheduleId ? `Horario "${name}" actualizado` : `Horario "${name}" creado`, 'ok');
         const wasNew = !editingScheduleId;
         if (wasNew) document.getElementById('newSchName').value = '';
         closeScheduleModal();
         await loadSchedules();
         if (j.id) selectSchedule(j.id);
     } catch (e) {
-        schMsg('❌ ' + e.message, 'err');
+        schMsg('' + e.message, 'err');
     }
 }
 
@@ -1611,11 +1657,11 @@ async function delSchedule(id) {
     if (!confirm(`¿Eliminar el horario "${s ? s.name : ''}"? Los empleados quedarán sin horario.`)) return;
     try {
         await fetch('/api/schedules/' + id, { method: 'DELETE' });
-        msg(`✅ Horario "${s ? s.name : ''}" eliminado`, 'ok');
+        msg(`Horario "${s ? s.name : ''}" eliminado`, 'ok');
         if (selectedScheduleId === id) { selectedScheduleId = null; resetAssignSchedulePanel(); }
         await loadSchedules();
     } catch (e) {
-        msg('❌ ' + e.message, 'err');
+        msg('' + e.message, 'err');
     }
 }
 
@@ -1712,7 +1758,7 @@ function estadoBadge(e) {
     if (e === 'Presente')    return '<span class="badge ok">Presente</span>';
     if (e === 'Falta')       return '<span class="badge" style="background:#fee2e2;color:#991b1b">Falta</span>';
     if (e === 'Permiso')     return '<span class="badge" style="background:#ccfbf1;color:#0f766e">Permiso</span>';
-    if (e === 'Con permiso') return '<span class="badge" style="background:#dbeafe;color:#1e40af">Con permiso</span>';
+    if (e === 'Con permiso') return '<span class="badge" style="background:#dcefe2;color:#0f6131">Con permiso</span>';
     return '<span class="badge" style="background:#fef3c7;color:#92400e">' + esc(e) + '</span>';
 }
 
@@ -1824,12 +1870,12 @@ async function saveJustification() {
         });
         const j = await r.json();
         if (!j.success) throw new Error(j.error || 'Error');
-        msg('✅ Justificación guardada', 'ok');
+        msg('Justificación guardada', 'ok');
         closeJustModal();
         await loadAsistencia();
         showAsistDetalle(uid);
     } catch (e) {
-        m.className = 'msg err'; m.textContent = '❌ ' + e.message;
+        m.className = 'msg err'; m.textContent = '' + e.message;
     }
 }
 
@@ -1839,11 +1885,11 @@ async function quitarJustificacion(uid, date, tipo) {
         const r = await fetch(`/api/justificaciones?user_id=${encodeURIComponent(uid)}&date=${encodeURIComponent(date)}&tipo=${encodeURIComponent(tipo)}`, { method: 'DELETE' });
         const j = await r.json();
         if (!j.success) throw new Error(j.error || 'Error');
-        msg('✅ Justificación eliminada', 'ok');
+        msg('Justificación eliminada', 'ok');
         await loadAsistencia();
         showAsistDetalle(uid);
     } catch (e) {
-        msg('❌ ' + e.message, 'err');
+        msg('' + e.message, 'err');
     }
 }
 
