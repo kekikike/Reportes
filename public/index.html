@@ -9,26 +9,30 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; background: #f4f6fb; color: #1f2937; }
 
-    .header { background: #0f6131; color: #fff; padding: 16px 28px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.2); position: relative; }
-    .header h1 { font-size: 19px; flex: 1; }
-    .header .dot { width: 11px; height: 11px; border-radius: 50%; background: #f0c84f; display: inline-block; margin-right: 6px; }
+    .header { background: #0f6131; color: #fff; padding: 16px 28px; display: flex; align-items: center; gap: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.2), 0 0 0 1px rgba(240,200,79,.3); position: relative; border-bottom: 2px solid #f0c84f; }
+    .header h1 { font-size: 19px; flex: 1; background: linear-gradient(90deg, #fff, #f0c84f); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .header .dot { width: 11px; height: 11px; border-radius: 50%; background: radial-gradient(circle at 30% 30%, #fff8dc, #f0c84f 60%, #c9a13a); box-shadow: 0 0 8px #f0c84f, inset 0 -2px 4px rgba(0,0,0,.2); display: inline-block; margin-right: 6px; animation: pulseGold 2.5s ease-in-out infinite; }
+    @keyframes pulseGold { 0%,100% { box-shadow: 0 0 8px #f0c84f, inset 0 -2px 4px rgba(0,0,0,.2); } 50% { box-shadow: 0 0 16px #fde047, inset 0 -2px 4px rgba(0,0,0,.2); } }
     .header .hdrcfg { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .hdrcfg input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #0f172a; background: #fff; }
+    .hdrcfg input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 10px; font-size: 13px; color: #0f172a; background: #fff; transition: border-color .2s, box-shadow .2s; }
+    .hdrcfg input:focus { border-color: #f0c84f; box-shadow: 0 0 0 3px rgba(240,200,79,.25); }
 
     .container { max-width: 1100px; margin: 24px auto; padding: 0 18px; }
 
-    .card { background: #fff; border-radius: 10px; padding: 18px 22px; box-shadow: 0 1px 4px rgba(0,0,0,.1); margin-bottom: 18px; }
+    .card { background: #fff; border-radius: 10px; padding: 18px 22px; box-shadow: 0 1px 4px rgba(0,0,0,.1), 0 0 0 1px rgba(240,200,79,.08); margin-bottom: 18px; border-top: 3px solid #f0c84f; }
 
     .toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
     label { font-size: 12px; color: #6b7280; display: flex; flex-direction: column; gap: 4px; }
-    input, select, button { padding: 8px 11px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 14px; background: #fff; }
-    input:focus, select:focus { outline: 2px solid #9ec9ab; border-color: #0f6131; }
-    button { cursor: pointer; background: #0f6131; color: #fff; border: none; font-weight: 600; }
-    button:hover { background: #0b4a25; }
-    button.sec { background: #f0c84f; color: #3a2f00; }
-    button.sec:hover { background: #e8b842; }
-    button.warn { background: #f0c84f; color: #3a2f00; }
-    button.warn:hover { background: #e8b842; }
+    input, select { padding: 8px 11px; border: 1px solid #d1d5db; border-radius: 7px; font-size: 14px; background: #fff; transition: border-color .2s, box-shadow .2s, background .2s; }
+    input:focus, select:focus { outline: none; border-color: #f0c84f; box-shadow: 0 0 0 3px rgba(240,200,79,.25), 0 0 12px rgba(240,200,79,.15); background: #fefce8; }
+    button { cursor: pointer; background: linear-gradient(180deg, #147a3d, #0f6131); color: #fff; border: none; font-weight: 600; box-shadow: 0 2px 6px rgba(15,97,49,.3), inset 0 1px 0 rgba(255,255,255,.15); transition: transform .08s, box-shadow .2s, background .2s; }
+    button:hover { background: linear-gradient(180deg, #106834, #0b4a25); box-shadow: 0 4px 12px rgba(15,97,49,.4), inset 0 1px 0 rgba(255,255,255,.2); }
+    button:active { transform: scale(0.98); box-shadow: 0 1px 3px rgba(15,97,49,.3), inset 0 2px 4px rgba(0,0,0,.15); }
+    button.sec { background: linear-gradient(180deg, #f5d46b, #f0c84f); color: #3a2f00; box-shadow: 0 2px 6px rgba(240,200,79,.35), inset 0 1px 0 rgba(255,255,255,.2); border: 1px solid rgba(200,160,50,.3); }
+    button.sec:hover { background: linear-gradient(180deg, #fde047, #f0c84f); box-shadow: 0 4px 12px rgba(240,200,79,.45), inset 0 1px 0 rgba(255,255,255,.25); }
+    button.sec:active { transform: scale(0.98); }
+    button.warn { background: linear-gradient(180deg, #f5d46b, #f0c84f); color: #3a2f00; box-shadow: 0 2px 6px rgba(240,200,79,.35), inset 0 1px 0 rgba(255,255,255,.2); }
+    button.warn:hover { background: linear-gradient(180deg, #fde047, #f0c84f); box-shadow: 0 4px 12px rgba(240,200,79,.45), inset 0 1px 0 rgba(255,255,255,.25); }
 
     .stats { display: flex; gap: 30px; flex-wrap: wrap; }
     .stat b { display: block; font-size: 26px; color: #0f6131; }
@@ -44,9 +48,12 @@
     tr:hover { background: #f8fafc; }
     .scroll { max-height: 60vh; overflow: auto; border: 1px solid #e5e7eb; border-radius: 7px; }
 
-    .nav-tabs { display: flex; gap: 4px; margin-bottom: 18px; }
-    .tab { padding: 9px 18px; border-radius: 7px 7px 0 0; background: #e5e7eb; cursor: pointer; font-size: 14px; }
-    .tab.active { background: #0f6131; color: #fff; }
+    .nav-tabs { display: flex; gap: 4px; margin-bottom: 18px; border-bottom: 2px solid #f0c84f; padding-bottom: 1px; }
+    .tab { padding: 9px 18px; border-radius: 7px 7px 0 0; background: #e5e7eb; cursor: pointer; font-size: 14px; transition: all .15s; position: relative; }
+    .tab::after { content: ''; position: absolute; bottom: -2px; left: 50%; width: 0; height: 2px; background: linear-gradient(90deg, #f0c84f, #fde047); transition: width .2s, left .2s; }
+    .tab:hover { background: #f1f5f9; }
+    .tab.active { background: linear-gradient(180deg, #147a3d, #0f6131); color: #fff; box-shadow: 0 -2px 8px rgba(15,97,49,.2); }
+    .tab.active::after { width: 100%; left: 0; }
     .panel { display: none; }
     .panel.active { display: block; }
 
@@ -67,13 +74,17 @@
     .btn-ficha:hover { background: #0b4a25; }
 
     /* Botones grandes de acción (Editar / Eliminar / Quitar) */
-    .btn-act { padding: 7px 15px; font-size: 13px; font-weight: 600; border: none; border-radius: 6px; color: #fff; cursor: pointer; }
-    .btn-act.edit { background: #0f6131; }
-    .btn-act.edit:hover { background: #0b4a25; }
-    .btn-act.del { background: #dc2626; }
-    .btn-act.del:hover { background: #b91c1c; }
-    .btn-act.ghost { background: #f0c84f; color: #3a2f00; }
-    .btn-act.ghost:hover { background: #e8b842; }
+    .btn-act { padding: 7px 15px; font-size: 13px; font-weight: 600; border: none; border-radius: 6px; color: #fff; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.15); transition: transform .08s, box-shadow .2s, background .2s; }
+    .btn-act.edit { background: linear-gradient(180deg, #147a3d, #0f6131); box-shadow: 0 2px 6px rgba(15,97,49,.3), inset 0 1px 0 rgba(255,255,255,.15); }
+    .btn-act.edit:hover { background: linear-gradient(180deg, #106834, #0b4a25); box-shadow: 0 4px 12px rgba(15,97,49,.4), inset 0 1px 0 rgba(255,255,255,.2); }
+    .btn-act.edit:active { transform: scale(0.98); }
+    .btn-act.del { background: linear-gradient(180deg, #ef4444, #dc2626); box-shadow: 0 2px 6px rgba(220,38,38,.3), inset 0 1px 0 rgba(255,255,255,.15); }
+    .btn-act.del:hover { background: linear-gradient(180deg, #dc2626, #b91c1c); box-shadow: 0 4px 12px rgba(220,38,38,.4), inset 0 1px 0 rgba(255,255,255,.2); }
+    .btn-act.del:active { transform: scale(0.98); }
+    .btn-act.ghost { background: linear-gradient(180deg, #f5d46b, #f0c84f); color: #3a2f00; box-shadow: 0 2px 6px rgba(240,200,79,.35), inset 0 1px 0 rgba(255,255,255,.2); border: 1px solid rgba(200,160,50,.3); }
+    .btn-act.ghost:hover { background: linear-gradient(180deg, #fde047, #f0c84f); box-shadow: 0 4px 12px rgba(240,200,79,.45), inset 0 1px 0 rgba(255,255,255,.25); }
+    .btn-act.ghost:active { transform: scale(0.98); }
+    .btn-act:active { transform: scale(0.98); box-shadow: 0 1px 3px rgba(0,0,0,.3), inset 0 2px 4px rgba(0,0,0,.15); }
 
     /* Ficha de justificación (vista dentro del modal) */
     .ficha { position: relative; padding: 4px 2px 0; }
@@ -159,22 +170,28 @@
     @keyframes toastUp { to { transform: translateY(-20px); opacity: 0; } }
 
     /* Tarjeta de estado (carga/sync) en esquina superior derecha */
-    .status-card { position: fixed; top: 16px; right: 16px; z-index: 300; width: 280px; background: #fff; border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,.20); border: 1px solid #e5e7eb; overflow: hidden; animation: statusSlide .3s cubic-bezier(.2,.8,.2,1); }
-    @keyframes statusSlide { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-    .status-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #0f6131; color: #fff; font-weight: 600; font-size: 13px; }
-    .status-close { background: transparent; border: none; color: #fff; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
-    .status-close:hover { color: #f0c84f; }
-    .status-body { padding: 12px 14px; }
-    .status-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-size: 12px; }
+    .status-card { position: fixed; top: 16px; right: 16px; z-index: 300; width: 300px; background: linear-gradient(135deg, #fff 0%, #fefce8 100%); border-radius: 12px; box-shadow: 0 16px 40px rgba(0,0,0,.18), 0 0 0 1px rgba(240,200,79,.25), 0 0 24px rgba(240,200,79,.15); overflow: hidden; animation: statusSlide .4s cubic-bezier(.2,.8,.2,1); border: 1px solid rgba(240,200,79,.3); }
+    @keyframes statusSlide { from { transform: translateX(120%) scale(0.95); opacity: 0; } to { transform: translateX(0) scale(1); opacity: 1; } }
+    .status-card.syncing { box-shadow: 0 16px 40px rgba(0,0,0,.18), 0 0 0 1px rgba(240,200,79,.4), 0 0 32px rgba(240,200,79,.25); animation: statusSlide .4s cubic-bezier(.2,.8,.2,1), glowPulse 1.5s ease-in-out infinite; }
+    @keyframes glowPulse { 0%,100% { box-shadow: 0 16px 40px rgba(0,0,0,.18), 0 0 0 1px rgba(240,200,79,.4), 0 0 32px rgba(240,200,79,.25); } 50% { box-shadow: 0 16px 40px rgba(0,0,0,.18), 0 0 0 1px rgba(240,200,79,.6), 0 0 48px rgba(240,200,79,.35); } }
+    .status-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: linear-gradient(90deg, #0f6131, #147a3d); color: #fff; font-weight: 600; font-size: 13px; border-bottom: 1px solid rgba(240,200,79,.3); position: relative; }
+    .status-header::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, #f0c84f, transparent); }
+    .status-close { background: transparent; border: none; color: #fff; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; transition: color .2s, transform .2s; }
+    .status-close:hover { color: #fde047; transform: rotate(90deg); }
+    .status-body { padding: 14px 16px; }
+    .status-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 12px; }
     .status-row:last-child { margin-bottom: 0; }
-    .status-label { color: #6b7280; }
-    .status-value { color: #1f2937; font-weight: 500; font-family: monospace; font-size: 11px; }
+    .status-label { color: #6b7280; font-weight: 500; }
+    .status-value { color: #1f2937; font-weight: 600; font-family: monospace; font-size: 11px; }
     .status-value.ok { color: #0f6131; }
     .status-value.warn { color: #f0c84f; }
     .status-value.err { color: #dc2626; }
-    .status-progress { height: 6px; background: #e5e7eb; border-radius: 3px; overflow: hidden; }
-    .status-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #f0c84f, #e8b842); transition: width .3s ease; }
-    .status-actions { padding: 10px 14px; border-top: 1px solid #e5e7eb; background: #f8fafc; }
+    .status-progress { height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden; position: relative; }
+    .status-progress::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.3) 50%, transparent 100%); animation: shimmer 1.5s infinite; }
+    @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+    .status-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #f0c84f, #fde047, #f0c84f); background-size: 200% 100%; transition: width .4s cubic-bezier(.4,0,.2,1); animation: barFlow 1.2s linear infinite; border-radius: 4px; box-shadow: 0 0 8px rgba(240,200,79,.5); }
+    @keyframes barFlow { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .status-actions { padding: 12px 16px; border-top: 1px solid rgba(240,200,79,.2); background: linear-gradient(180deg, #fefce8, #fff); }
     .status-actions button { width: 100%; }
 </style>
 </head>
@@ -676,25 +693,52 @@ function today() { return new Date().toISOString().slice(0, 10); }
 function firstOfMonth() { const d = new Date(); d.setDate(1); return d.toISOString().slice(0, 10); }
 
 async function syncDevice() {
-    msg('Sincronizando (completa)...', 'ok');
+    // Feedback INMEDIATO al pulsar
+    msg('⟳ Iniciando sincronización completa...', 'ok');
     showStatusCard();
-    updateProgressBar(0);
+    updateProgressBar(5);
+    document.getElementById('stServer').textContent = 'Conectando...';
+    document.getElementById('stServer').className = 'status-value warn';
+    document.getElementById('stDevice').textContent = 'Conectando al biométrico...';
+    document.getElementById('stDevice').className = 'status-value warn';
+    
     try {
+        updateProgressBar(15);
         const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ forceFull: true }) });
+        updateProgressBar(50);
         const j = await r.json();
+        updateProgressBar(80);
+        
         if (j.success && j.results) {
             const detalle = j.results.map(x => x.success
                 ? `${x.device.ip}: ${x.records} leídas, ${x.inserted} nuevas${x.conArea ? `, ${x.conArea} con área` : ''}`
                 : `${x.device.ip}: falló (${x.error})`).join(' — ');
-            msg('' + j.message + ' | ' + detalle, 'ok');
+            msg('✅ Sincronización completada | ' + detalle, 'ok');
             const totalNew = j.results.filter(x => x.success).reduce((a, b) => a + (b.inserted || 0), 0);
             window.lastSyncRecords = totalNew;
+            document.getElementById('stNewRecords').textContent = totalNew + ' nuevos';
+            document.getElementById('stServer').textContent = 'En línea';
+            document.getElementById('stServer').className = 'status-value ok';
+            
+            const connected = j.results.filter(x => x.success).length;
+            document.getElementById('stDevice').textContent = `${connected}/${j.results.length} biométricos OK`;
+            document.getElementById('stDevice').className = connected === j.results.length ? 'status-value ok' : 'status-value warn';
+            document.getElementById('stLastSync').textContent = new Date().toLocaleString();
+            
             loadUsers(); loadDepartments(); loadReport(); loadDevices();
         } else {
-            msg('Error: ' + j.error, 'err');
+            msg('❌ Error: ' + j.error, 'err');
+            document.getElementById('stServer').textContent = 'Error';
+            document.getElementById('stServer').className = 'status-value err';
+            document.getElementById('stDevice').textContent = 'Falló la conexión';
+            document.getElementById('stDevice').className = 'status-value err';
         }
     } catch (e) {
-        msg('No se pudo sincronizar: ' + e.message, 'err');
+        msg('❌ No se pudo sincronizar: ' + e.message, 'err');
+        document.getElementById('stServer').textContent = 'Error';
+        document.getElementById('stServer').className = 'status-value err';
+        document.getElementById('stDevice').textContent = 'Excepción: ' + e.message;
+        document.getElementById('stDevice').className = 'status-value err';
     }
     updateProgressBar(100);
     setTimeout(() => { hideStatusCard(); updateProgressBar(0); }, 3000);
@@ -718,23 +762,42 @@ function updateProgressBar(pct) {
 }
 
 async function syncOne(ip) {
-    msg('Sincronizando ' + ip + '...', 'ok');
+    msg('⟳ Sincronizando ' + ip + '...', 'ok');
     showStatusCard();
-    updateProgressBar(0);
+    updateProgressBar(5);
+    document.getElementById('stServer').textContent = 'Conectando...';
+    document.getElementById('stServer').className = 'status-value warn';
+    document.getElementById('stDevice').textContent = 'Conectando a ' + ip + '...';
+    document.getElementById('stDevice').className = 'status-value warn';
     try {
+        updateProgressBar(15);
         const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ip, forceFull: true }) });
+        updateProgressBar(50);
         const j = await r.json();
+        updateProgressBar(80);
         if (j.success) {
-            msg(`${j.device.ip}: ${j.users} usuarios, ${j.records} leídas, ${j.inserted} nuevas`
-                + (j.conArea ? `, ${j.conArea} con área` : '')
-                + (j.areasSinNombre ? `. Asigna el nombre de ${j.areasSinNombre} código(s) en la pestaña Áreas.` : '.'), 'ok');
+            msg('✅ ' + j.device.ip + ': ' + j.users + ' usuarios, ' + j.records + ' leídas, ' + j.inserted + ' nuevas' + (j.conArea ? ', ' + j.conArea + ' con área' : '') + (j.areasSinNombre ? '. Asigna el nombre de ' + j.areasSinNombre + ' código(s) en la pestaña Áreas.' : '.'), 'ok');
             window.lastSyncRecords = j.inserted || 0;
+            document.getElementById('stNewRecords').textContent = (j.inserted || 0) + ' nuevos';
+            document.getElementById('stServer').textContent = 'En línea';
+            document.getElementById('stServer').className = 'status-value ok';
+            document.getElementById('stDevice').textContent = j.device.ip + ' OK';
+            document.getElementById('stDevice').className = 'status-value ok';
+            document.getElementById('stLastSync').textContent = new Date().toLocaleString();
             loadUsers(); loadDepartments(); loadReport(); loadDevices();
         } else {
-            msg('' + ip + ': ' + j.error, 'err');
+            msg('❌ ' + ip + ': ' + j.error, 'err');
+            document.getElementById('stServer').textContent = 'Error';
+            document.getElementById('stServer').className = 'status-value err';
+            document.getElementById('stDevice').textContent = 'Falló: ' + j.error;
+            document.getElementById('stDevice').className = 'status-value err';
         }
     } catch (e) {
-        msg('No se pudo sincronizar ' + ip + ': ' + e.message, 'err');
+        msg('❌ No se pudo sincronizar ' + ip + ': ' + e.message, 'err');
+        document.getElementById('stServer').textContent = 'Error';
+        document.getElementById('stServer').className = 'status-value err';
+        document.getElementById('stDevice').textContent = 'Excepción: ' + e.message;
+        document.getElementById('stDevice').className = 'status-value err';
     }
     updateProgressBar(100);
     setTimeout(() => { hideStatusCard(); updateProgressBar(0); }, 3000);
@@ -791,10 +854,16 @@ async function checkStatus() {
 
 // Tarjeta de estado (esquina superior derecha)
 function showStatusCard() {
-    document.getElementById('statusCard').style.display = 'block';
+    const card = document.getElementById('statusCard');
+    card.style.display = 'block';
+    card.classList.add('syncing');
+    // Animación inmediata de la barra
+    setTimeout(() => updateProgressBar(15), 50);
 }
 function hideStatusCard() {
-    document.getElementById('statusCard').style.display = 'none';
+    const card = document.getElementById('statusCard');
+    card.classList.remove('syncing');
+    setTimeout(() => { card.style.display = 'none'; }, 400);
 }
 function updateStatusCard(devices) {
     const card = document.getElementById('statusCard');
