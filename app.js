@@ -21,6 +21,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// El navegador pide /favicon.ico automaticamente. La interfaz ya declara su
+// icono en linea, pero por si acaso respondemos 204 (sin contenido) en vez de
+// un 404 ruidoso en la consola.
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 // ----------------------------------------------------------------
 //  Base de datos SQLite (historial local)
 // ----------------------------------------------------------------
