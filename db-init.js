@@ -85,6 +85,21 @@ const SCHEMA_SQL = `
         updated_at TEXT
     );
 
+    -- Justificaciones de asistencia. Una justificacion convierte una falta en
+    -- permiso y un atraso / salida temprana en "con permiso".
+    --   tipo: 'falta' | 'atraso' | 'salida_temprana'
+    -- La clave (usuario, fecha, tipo) garantiza una sola justificacion por
+    -- incidencia y dia.
+    CREATE TABLE IF NOT EXISTS justifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        tipo TEXT NOT NULL,
+        reason TEXT,
+        created_at TEXT,
+        UNIQUE(user_id, date, tipo)
+    );
+
     -- Metadatos internos (marcadores de migraciones de un solo uso).
     CREATE TABLE IF NOT EXISTS meta (
         key TEXT PRIMARY KEY,
@@ -109,6 +124,8 @@ const SCHEMA_SQL = `
     CREATE INDEX IF NOT EXISTS idx_user_areas_area ON user_areas(area_code);
     CREATE INDEX IF NOT EXISTS idx_sched_days   ON schedule_days(schedule_id);
     CREATE INDEX IF NOT EXISTS idx_user_scheds  ON user_schedules(schedule_id);
+    CREATE INDEX IF NOT EXISTS idx_just_user    ON justifications(user_id);
+    CREATE INDEX IF NOT EXISTS idx_just_date    ON justifications(date);
 `;
 
 /** Dispositivo por defecto: ZKTeco K40 de la oficina. */

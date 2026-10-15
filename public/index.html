@@ -136,6 +136,7 @@
         <div class="tab active" data-tab="es" onclick="showTab('es')">Entradas / Salidas</div>
         <div class="tab" data-tab="detalle" onclick="showTab('detalle')">Detalle de marcas</div>
         <div class="tab" data-tab="retrasos" onclick="showTab('retrasos')">Retrasos</div>
+        <div class="tab" data-tab="asistencia" onclick="showTab('asistencia')">Asistencia</div>
         <div class="tab" data-tab="horarios" onclick="showTab('horarios')">Horarios</div>
         <div class="tab" data-tab="adduser" onclick="showTab('adduser')">Agregar Usuario</div>
         <div class="tab" data-tab="dept" onclick="showTab('dept')">Áreas</div>
@@ -237,6 +238,50 @@
                         <tr><th>Fecha</th><th>Hora esperada</th><th>Entrada</th><th>Retraso (min)</th></tr>
                     </thead>
                     <tbody id="tblRetrasoDet"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Asistencia -->
+    <div class="panel" id="panel-asistencia">
+        <div class="card">
+            <div class="toolbar">
+                <label>Desde <input type="date" id="aDesde"></label>
+                <label>Hasta <input type="date" id="aHasta"></label>
+                <label>Área <select id="aArea" style="min-width:170px"><option value="">Todas las áreas</option></select></label>
+                <input type="text" id="aBuscar" placeholder="Buscar por CI o nombre" style="flex:1;min-width:180px">
+                <button onclick="loadAsistencia()">Consultar</button>
+                <button class="warn" onclick="exportAsistencia()">Exportar a Excel</button>
+            </div>
+            <p class="hint">Cada empleado se evalúa <b>según su horario</b>: si no marca dentro de su horario es <b>Falta</b>; si llega tarde es <b>Atraso</b>; si sale antes es <b>Salida temprana</b>. Al <b>justificar</b>, la falta pasa a <b>Permiso</b> y el atraso/salida a <b>Con permiso</b> (y dejan de contarse).</p>
+        </div>
+
+        <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+                <h4 style="margin:0;font-size:15px;color:#1e3a8a">Resumen por empleado</h4>
+            </div>
+            <div class="scroll">
+                <table>
+                    <thead>
+                        <tr><th>#</th><th>CI</th><th>Nombre</th><th>Área</th><th>Días</th><th>Faltas</th><th>Permisos</th><th>Atrasos</th><th>Sal. temprana</th></tr>
+                    </thead>
+                    <tbody id="tblAsist"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card" id="cardAsistDet" style="display:none">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px">
+                <h4 style="margin:0;font-size:15px;color:#1e3a8a">Detalle por día: <span id="detAsistNombre"></span></h4>
+                <span class="hint" id="detAsistHorario" style="margin:0"></span>
+            </div>
+            <div class="scroll">
+                <table>
+                    <thead>
+                        <tr><th>Fecha</th><th>Horario</th><th>Entrada</th><th>Salida</th><th>Estado</th><th>Motivo</th><th>Acción</th></tr>
+                    </thead>
+                    <tbody id="tblAsistDet"></tbody>
                 </table>
             </div>
         </div>
@@ -419,6 +464,23 @@
         <div class="toolbar" style="justify-content:flex-end;margin-top:16px">
             <button onclick="closeScheduleModal()">Cancelar</button>
             <button class="sec" onclick="saveSchedule()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Justificación -->
+<div class="modal-mask" id="modalJust">
+    <div class="modal" style="width:520px">
+        <button type="button" class="modal-x" title="Cerrar" aria-label="Cerrar" onclick="closeJustModal()">✕</button>
+        <h2 id="justTitulo">Justificar</h2>
+        <p class="hint" id="justSub" style="margin:0 0 4px"></p>
+        <label style="display:block;margin-top:10px">Motivo / descripción
+            <textarea id="justReason" rows="3" style="width:100%;padding:8px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:14px;font-family:inherit" placeholder="Ej: cita médica, permiso personal, comisión de trabajo..."></textarea>
+        </label>
+        <div id="justMsg" class="msg" style="margin-top:10px"></div>
+        <div class="toolbar" style="justify-content:flex-end;margin-top:14px">
+            <button onclick="closeJustModal()">Cancelar</button>
+            <button class="sec" onclick="saveJustification()">Guardar</button>
         </div>
     </div>
 </div>
@@ -645,9 +707,6 @@ async function loadReport() {
             const entrada = (rec.entrada || '').slice(11, 19);
             const salida  = (rec.salida || '').slice(11, 19);
             const atraso = !!rec.atraso;
-            const marca = rec.inferida
-                ? ' title="Día sin entrada marcada: la primera salida se tomó como entrada y la última como salida"'
-                : '';
             // Atraso: la entrada supera la hora del horario (+ tolerancia). Se
             // resalta en rojo pastel con el detalle en el tooltip.
             const lateAttr = atraso
@@ -657,7 +716,7 @@ async function loadReport() {
             const celdas = `
                 <td></td>
                 <td>${esc(rec.user_id)}</td>
-                <td${marca}>${esc(vist(rec.name))}</td>
+                <td>${esc(vist(rec.name))}</td>
                 <td>${rec.area ? esc(rec.area) : '<span style="color:#9ca3af">—</span>'}</td>
                 <td${lateAttr}>${entrada ? '<b>' + esc(entrada) + '</b>' : '<span class="missing">—</span>'}</td>
                 <td>${salida ? '<b>' + esc(salida) + '</b>' : '<span class="missing">—</span>'}`;
@@ -722,6 +781,16 @@ async function loadDepartments() {
             + ALL_DEPTS.map(d => `<option value="${esc(d.codigo)}">${esc(d.nombre)}</option>`).join('')
             + '<option value="sin">Sin área</option>';
         selR.value = actualR;
+    }
+
+    // Filtro del módulo de asistencia (mismo listado de áreas).
+    const selA = document.getElementById('aArea');
+    if (selA) {
+        const actualA = selA.value;
+        selA.innerHTML = '<option value="">Todas las áreas</option>'
+            + ALL_DEPTS.map(d => `<option value="${esc(d.codigo)}">${esc(d.nombre)}</option>`).join('')
+            + '<option value="sin">Sin área</option>';
+        selA.value = actualA;
     }
 
     // Renderizar lista de áreas en la nueva UI
@@ -1629,6 +1698,172 @@ function exportRetrasoDetalle() {
     window.location.href = `/api/export/retrasos-detalle/excel?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}&user_id=${encodeURIComponent(selectedRetrasoUser)}`;
 }
 
+// ------------------------------------------------------------------
+//  Asistencia (evaluación por horario + justificaciones)
+// ------------------------------------------------------------------
+let ALL_ASIST = { resumen: [], registros: [] };
+let selectedAsistUser = null;
+let justCtx = null;
+
+const fmtDateShort = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+
+function estadoBadge(e) {
+    if (e === 'Presente')    return '<span class="badge ok">Presente</span>';
+    if (e === 'Falta')       return '<span class="badge" style="background:#fee2e2;color:#991b1b">Falta</span>';
+    if (e === 'Permiso')     return '<span class="badge" style="background:#ccfbf1;color:#0f766e">Permiso</span>';
+    if (e === 'Con permiso') return '<span class="badge" style="background:#dbeafe;color:#1e40af">Con permiso</span>';
+    return '<span class="badge" style="background:#fef3c7;color:#92400e">' + esc(e) + '</span>';
+}
+
+async function loadAsistencia() {
+    const desde = document.getElementById('aDesde').value || firstOfMonth();
+    const hasta = document.getElementById('aHasta').value || today();
+    const q = document.getElementById('aBuscar').value.trim();
+    const area = document.getElementById('aArea').value;
+    const qs = new URLSearchParams({ desde, hasta });
+    if (q) qs.set('q', q);
+    if (area) qs.set('area', area);
+
+    const j = await (await fetch('/api/asistencia?' + qs)).json();
+    ALL_ASIST = j;
+    selectedAsistUser = null;
+    document.getElementById('cardAsistDet').style.display = 'none';
+
+    document.getElementById('tblAsist').innerHTML = (j.resumen || []).map((p, i) => `
+        <tr class="rrow" data-uid="${esc(p.user_id)}" onclick="showAsistDetalle('${esc(p.user_id)}')">
+            <td>${i + 1}</td>
+            <td>${esc(p.user_id)}</td>
+            <td>${esc(vist(p.name))}</td>
+            <td>${p.area ? esc(p.area) : '<span style="color:#9ca3af">—</span>'}</td>
+            <td>${p.dias}</td>
+            <td>${p.faltas ? '<b style="color:#b91c1c">' + p.faltas + '</b>' : '0'}</td>
+            <td>${p.permisos ? '<b style="color:#0f766e">' + p.permisos + '</b>' : '0'}</td>
+            <td>${p.atrasos ? '<b style="color:#b45309">' + p.atrasos + '</b>' : '0'}</td>
+            <td>${p.salidas_tempranas ? '<b style="color:#b45309">' + p.salidas_tempranas + '</b>' : '0'}</td>
+        </tr>`).join('')
+        || '<tr><td colspan="9" style="text-align:center;color:#9ca3af;padding:30px">Sin empleados con horario asignado en el periodo.<br>Asigna horarios en la pestaña <b>Horarios</b>.</td></tr>';
+}
+
+function showAsistDetalle(userId) {
+    if (selectedAsistUser === userId) {
+        selectedAsistUser = null;
+        document.getElementById('cardAsistDet').style.display = 'none';
+        document.querySelectorAll('.rrow.open').forEach(r => r.classList.remove('open'));
+        return;
+    }
+    selectedAsistUser = userId;
+    document.querySelectorAll('#tblAsist .rrow').forEach(r => r.classList.toggle('open', r.dataset.uid === userId));
+
+    const filas = (ALL_ASIST.registros || []).filter(r => String(r.user_id) === String(userId));
+    const persona = (ALL_ASIST.resumen || []).find(p => String(p.user_id) === String(userId)) || {};
+    document.getElementById('detAsistNombre').textContent = persona.name ? vist(persona.name) : userId;
+    document.getElementById('detAsistHorario').textContent = persona.schedule_name ? ('Horario: ' + persona.schedule_name) : '';
+
+    document.getElementById('tblAsistDet').innerHTML = filas.map(r => {
+        const acc = [];
+        if (r.falta) acc.push(justBtn(r.user_id, r.date, 'falta', 'Justificar falta'));
+        if (r.tarde) acc.push(justBtn(r.user_id, r.date, 'atraso', 'Justificar atraso'));
+        if (r.salida_temprana) acc.push(justBtn(r.user_id, r.date, 'salida_temprana', 'Justificar salida'));
+        if (r.justificada_falta) acc.push(unjustBtn(r.user_id, r.date, 'falta'));
+        if (r.justificada_atraso) acc.push(unjustBtn(r.user_id, r.date, 'atraso'));
+        if (r.justificada_salida) acc.push(unjustBtn(r.user_id, r.date, 'salida_temprana'));
+        return `
+            <tr>
+                <td>${fmtDateShort(r.date)}</td>
+                <td>${esc(r.esperado_entrada)}-${esc(r.esperado_salida)}</td>
+                <td>${r.entrada ? '<b>' + esc((r.entrada || '').slice(11, 19)) + '</b>' : '<span class="missing">—</span>'}</td>
+                <td>${r.salida ? '<b>' + esc((r.salida || '').slice(11, 19)) + '</b>' : '<span class="missing">—</span>'}</td>
+                <td>${estadoBadge(r.estado)}</td>
+                <td style="font-size:12px;color:#475569">${r.motivo ? esc(r.motivo) : (r.retraso_min ? r.retraso_min + ' min' : (r.salida_min ? r.salida_min + ' min' : ''))}</td>
+                <td style="white-space:nowrap">${acc.join(' ') || '<span style="color:#9ca3af">—</span>'}</td>
+            </tr>`;
+    }).join('') || '<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:20px">Sin días evaluados</td></tr>';
+
+    const card = document.getElementById('cardAsistDet');
+    card.style.display = 'block';
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function justBtn(uid, date, tipo, label) {
+    return `<button style="padding:2px 8px;font-size:11px;margin:1px" onclick="openJustModal('${esc(uid)}','${date}','${tipo}')">${esc(label)}</button>`;
+}
+function unjustBtn(uid, date, tipo) {
+    return `<button style="padding:2px 8px;font-size:11px;background:#dc2626;margin:1px" onclick="quitarJustificacion('${esc(uid)}','${date}','${tipo}')">Quitar</button>`;
+}
+
+const JUST_TITULOS = { falta: 'Justificar falta', atraso: 'Justificar llegada tarde', salida_temprana: 'Justificar salida temprana' };
+
+function openJustModal(uid, date, tipo) {
+    justCtx = { uid, date, tipo };
+    document.getElementById('justTitulo').textContent = JUST_TITULOS[tipo] || 'Justificar';
+    const nombre = (ALL_ASIST.resumen || []).find(p => String(p.user_id) === String(uid));
+    document.getElementById('justSub').textContent = (nombre ? vist(nombre.name) + ' · ' : '') + fmtDateShort(date);
+    document.getElementById('justReason').value = '';
+    const m = document.getElementById('justMsg');
+    m.className = 'msg'; m.textContent = '';
+    document.getElementById('modalJust').classList.add('open');
+    document.getElementById('justReason').focus();
+}
+
+function closeJustModal() {
+    document.getElementById('modalJust').classList.remove('open');
+    justCtx = null;
+}
+
+async function saveJustification() {
+    if (!justCtx) return;
+    const reason = document.getElementById('justReason').value.trim();
+    const m = document.getElementById('justMsg');
+    if (!reason) { m.className = 'msg err'; m.textContent = 'Describe el motivo de la justificación.'; return; }
+    const uid = justCtx.uid;
+    try {
+        const r = await fetch('/api/justificaciones', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: justCtx.uid, date: justCtx.date, tipo: justCtx.tipo, reason })
+        });
+        const j = await r.json();
+        if (!j.success) throw new Error(j.error || 'Error');
+        msg('✅ Justificación guardada', 'ok');
+        closeJustModal();
+        await loadAsistencia();
+        showAsistDetalle(uid);
+    } catch (e) {
+        m.className = 'msg err'; m.textContent = '❌ ' + e.message;
+    }
+}
+
+async function quitarJustificacion(uid, date, tipo) {
+    if (!confirm('¿Quitar la justificación? La incidencia volverá a contarse.')) return;
+    try {
+        const r = await fetch(`/api/justificaciones?user_id=${encodeURIComponent(uid)}&date=${encodeURIComponent(date)}&tipo=${encodeURIComponent(tipo)}`, { method: 'DELETE' });
+        const j = await r.json();
+        if (!j.success) throw new Error(j.error || 'Error');
+        msg('✅ Justificación eliminada', 'ok');
+        await loadAsistencia();
+        showAsistDetalle(uid);
+    } catch (e) {
+        msg('❌ ' + e.message, 'err');
+    }
+}
+
+function exportAsistencia() {
+    const desde = document.getElementById('aDesde').value || firstOfMonth();
+    const hasta = document.getElementById('aHasta').value || today();
+    const q = document.getElementById('aBuscar').value.trim();
+    const area = document.getElementById('aArea').value;
+    let url = `/api/export/asistencia/excel?desde=${encodeURIComponent(desde)}&hasta=${encodeURIComponent(hasta)}`;
+    if (area) url += '&area=' + encodeURIComponent(area);
+    if (q) url += '&q=' + encodeURIComponent(q);
+    window.location.href = url;
+}
+
+// Esc cierra el modal de justificación.
+document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    const modal = document.getElementById('modalJust');
+    if (modal && modal.classList.contains('open')) closeJustModal();
+});
+
 // Inicializar
 document.getElementById('desde').value = firstOfMonth();
 document.getElementById('hasta').value = today();
@@ -1636,18 +1871,22 @@ document.getElementById('dDesde').value = firstOfMonth();
 document.getElementById('dHasta').value = today();
 document.getElementById('rDesde').value = firstOfMonth();
 document.getElementById('rHasta').value = today();
+document.getElementById('aDesde').value = firstOfMonth();
+document.getElementById('aHasta').value = today();
 document.getElementById('buscarEmp').addEventListener('input', () => { loadReport(); });
 document.getElementById('fDepto').addEventListener('change', () => { loadReport(); });
 document.getElementById('dBuscar').addEventListener('input', () => { loadDetail(); });
 document.getElementById('rBuscar').addEventListener('input', () => { loadRetrasos(); });
 document.getElementById('rArea').addEventListener('change', () => { loadRetrasos(); });
+document.getElementById('aBuscar').addEventListener('input', () => { loadAsistencia(); });
+document.getElementById('aArea').addEventListener('change', () => { loadAsistencia(); });
 fetch('/api/device/config').then(r => r.json()).then(cfg => {
     document.getElementById('hIp').value = cfg.ip || '';
     document.getElementById('hPort').value = cfg.port || '';
     checkStatus();
 }).catch(() => { checkStatus(); });
 loadUsers(); loadDepartments(); loadReport(); loadDetail(); loadDevices(); checkStatus();
-loadSchedules(); loadRetrasos();
+loadSchedules(); loadRetrasos(); loadAsistencia();
 setInterval(checkStatus, 20000);
 </script>
 </body>

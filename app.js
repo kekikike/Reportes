@@ -186,6 +186,26 @@ function loadSchedules() {
     return { scheds, userSched };
 }
 
+// Justificaciones del periodo: { 'user_id|date|tipo' -> reason }.
+function loadJustifications(desde, hasta) {
+    const map = Object.create(null);
+    let where = '1=1';
+    const params = [];
+    if (desde) { where += ' AND date >= ?'; params.push(String(desde).slice(0, 10)); }
+    if (hasta) { where += ' AND date <= ?'; params.push(String(hasta).slice(0, 10)); }
+    for (const r of db.prepare(`SELECT user_id, date, tipo, reason FROM justifications WHERE ${where}`).all(...params)) {
+        map[r.user_id + '|' + r.date + '|' + r.tipo] = r.reason || '';
+    }
+    return map;
+}
+
+// Fecha local de hoy (YYYY-MM-DD), sin desfase UTC.
+function _todayIso() {
+    const d = new Date();
+    const p = x => String(x).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 // Evalua si una entrada llega tarde respecto del horario del empleado.
 // Devuelve null si no hay horario/dia aplicable para esa fecha.
 function _evalAtraso(entradaTs, schedule) {
@@ -220,23 +240,12 @@ function _addDays(iso, n) {
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-// Construye las jornadas de cada usuario.
-// Reglas (UN registro por usuario por día):
-//  - Cada día con marcas genera a lo sumo UNA fila por usuario.
-//  - ENTRADA = primera marca punch 0 del día.
-//  - Si el día tiene una SALIDA real (punch 1) se usa esa como salida.
-//  - Si no hay salida real: una entrada (punch 0) posterior que difiera de la
-//    entrada inicial en MÁS de 3 minutos se considera salida (el biométrico a
-//    veces marca la salida como entrada).
-//  - Si un día tiene SOLO SALIDAS (ningún punch 0):
-//      * primero se intenta cerrar la jornada del día anterior (salida que
-//        cruza la medianoche: personal que sale al día siguiente),
-//      * si no hay jornada previa que cerrar, la PRIMERA salida del día se
-//        toma como ENTRADA y la ULTIMA como SALIDA (fila inferida).
-//  - Salidas nocturnas: una salida (punch 1) registrada al día siguiente, sin
-//    entrada previa ese día, cierra la jornada del día anterior (personal que
-//    sale el siguiente día).
-//  - Se garantiza UN registro por usuario por día (sin repetidos).
+// Construye las jornadas de cada usuario: UNA fila por usuario y día.
+// La lógica es local a cada día, sin cruces de medianoche ni inferencias:
+// un turno nocturno se resuelve en el módulo de Asistencia, que sí conoce
+// el horario del empleado.
+//   - ENTRADA = primera marca del día.
+//   - SALIDA  = última marca del día (null si solo hay una marca).
 function _buildJornadas(punches) {
     const perUser = Object.create(null);
     for (const p of punches) (perUser[p.user_id] = perUser[p.user_id] || []).push(p);
@@ -245,112 +254,22 @@ function _buildJornadas(punches) {
     for (const uid of Object.keys(perUser)) {
         const byDate = Object.create(null);
         for (const p of perUser[uid]) {
-            const d = p.timestamp.slice(0, 10);
+            const d = String(p.timestamp).slice(0, 10);
             (byDate[d] = byDate[d] || []).push(p);
         }
 
-        const rows = [];
         for (const d of Object.keys(byDate).sort()) {
             const marks = byDate[d].sort((a, b) => _ts(a.timestamp) - _ts(b.timestamp));
-            const n = marks.length;
-
-            let firstP0 = -1;
-            for (let i = 0; i < n; i++) {
-                if (Number(marks[i].punch) === 0) { firstP0 = i; break; }
-            }
-
-            // Salidas nocturnas: punch 1 sin una entrada previa en el mismo día.
-            const overnight = firstP0 === -1
-                ? marks.filter(p => Number(p.punch) === 1)
-                : marks.slice(0, firstP0).filter(p => Number(p.punch) === 1);
-
-            let overnightCerrado = false;
-            if (overnight.length) {
-                const prev = rows[rows.length - 1];
-                if (prev && !prev.salida && prev.entrada.slice(0, 10) === _addDays(d, -1)) {
-                    prev.salida = overnight.reduce(
-                        (m, p) => _ts(p.timestamp) > _ts(m) ? p.timestamp : m,
-                        overnight[0].timestamp);
-                    prev.marcaciones += overnight.length;
-                    overnightCerrado = true;
-                }
-            }
-
-            // Dia SIN entradas (solo punch 1) que no cerro una jornada previa:
-            // la primera salida es la entrada y la ultima es la salida.
-            if (firstP0 === -1 && !overnightCerrado) {
-                const p1s = marks.filter(p => Number(p.punch) === 1);
-                if (!p1s.length) continue;
-                rows.push({
-                    user_id: uid,
-                    name: p1s[0].name,
-                    entrada: p1s[0].timestamp,
-                    salida: p1s[p1s.length - 1].timestamp,
-                    marcaciones: n,
-                    inferida: 1,
-                });
-                continue;
-            }
-
-            const rest = firstP0 === -1 ? [] : marks.slice(firstP0);
-            if (!rest.length) continue;
-
-            const row = {
+            out.push({
+                date: d,
                 user_id: uid,
-                name: rest[0].name,
-                entrada: rest[0].timestamp,
-                salida: null,
-                marcaciones: n,
+                name: marks[0].name,
+                entrada: marks[0].timestamp,
+                salida: marks.length > 1 ? marks[marks.length - 1].timestamp : null,
+                marcaciones: marks.length,
                 inferida: 0,
-            };
-
-            const p1s = rest.filter(p => Number(p.punch) === 1);
-            if (p1s.length) {
-                // Salida real marcada el mismo día.
-                row.salida = p1s[p1s.length - 1].timestamp;
-            } else {
-                // Sin salida real: la última entrada (punch 0) posterior que
-                // difiera de la entrada inicial por más de 3 minutos es salida.
-                const t0 = _ts(rest[0].timestamp);
-                for (let i = 1; i < rest.length; i++) {
-                    if (Number(rest[i].punch) !== 0) continue;
-                    if (_ts(rest[i].timestamp) - t0 > 3 * 60000) {
-                        row.salida = rest[i].timestamp;
-                    }
-                }
-            }
-
-            rows.push(row);
+            });
         }
-
-        // Garantiza UN registro por usuario por día incluso si el biométrico
-        // registra marcaciones duplicadas o el cruce de medianoche generara
-        // dos jornadas: se conserva la primera entrada y la última salida.
-        const uniq = [];
-        const seenDate = Object.create(null);
-        for (const r of rows) {
-            const k = r.user_id + '|' + (r.entrada || '').slice(0, 10);
-            const prev = seenDate[k];
-            if (!prev) {
-                seenDate[k] = r;
-                uniq.push(r);
-                continue;
-            }
-            if (r.entrada && r.entrada < prev.entrada) prev.entrada = r.entrada;
-            if (r.salida && (!prev.salida || r.salida > prev.salida)) prev.salida = r.salida;
-            prev.marcaciones += r.marcaciones;
-            prev.inferida = (prev.inferida || r.inferida) ? 1 : 0;
-        }
-
-        out.push(...uniq.map(r => ({
-            date: (r.entrada || '').slice(0, 10),
-            user_id: r.user_id,
-            name: r.name,
-            entrada: r.entrada,
-            salida: r.salida,
-            marcaciones: r.marcaciones,
-            inferida: r.inferida || 0,
-        })));
     }
     return out;
 }
@@ -364,7 +283,7 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, area }) {
     if (!hasta) hasta = '2099-12-31';
 
     let where = 'timestamp >= ? AND timestamp <= ?';
-    const params = [desde + ' 00:00:00', _addDays(hasta, 1) + ' 23:59:59'];
+    const params = [desde + ' 00:00:00', hasta + ' 23:59:59'];
 
     if (user_id) { where += ' AND user_id = ?'; params.push(user_id); }
     if (q && q.trim()) {
@@ -391,11 +310,16 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, area }) {
     // Horarios: para saber si cada entrada es un atraso.
     const sched = loadSchedules();
 
+    const justif = loadJustifications(desde, hasta);
     let rows = _buildJornadas(punches).map(j => {
         const d = dept[j.user_id];
+        const fecha = (j.entrada || '').slice(0, 10);
         const ev = _evalAtraso(j.entrada, sched.scheds[sched.userSched[j.user_id]]);
+        // Un atraso justificado deja de contarse como atraso (pasa a "con permiso").
+        const justificado = !!(ev && ev.late && justif[j.user_id + '|' + fecha + '|atraso']);
+        const late = !!(ev && ev.late) && !justificado;
         return {
-            date: (j.entrada || '').slice(0, 10),
+            date: fecha,
             user_id: j.user_id,
             name: _cleanNameView(j.name),
             area: d ? d.nombre : '',
@@ -405,9 +329,11 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, area }) {
             marcaciones: j.marcaciones,
             inferida: j.inferida || 0,
             hora_esperada: ev ? ev.esperado : '',
-            atraso: !!(ev && ev.late),
-            retraso_min: ev && ev.late ? ev.retraso_min : 0,
-            retraso_seg: ev && ev.late ? ev.retraso_seg : 0,
+            atraso: late,
+            justificado,
+            motivo: justificado ? (justif[j.user_id + '|' + fecha + '|atraso'] || '') : '',
+            retraso_min: late ? ev.retraso_min : 0,
+            retraso_seg: late ? ev.retraso_seg : 0,
         };
     });
 
@@ -469,6 +395,214 @@ function getRetrasos({ desde, hasta, q, area, user_id }) {
         .sort((a, b) => b.retrasos - a.retrasos || a.name.localeCompare(b.name, 'es'));
 
     return { resumen, detalle };
+}
+
+// ----------------------------------------------------------------
+//  Asistencia: evaluación de cada empleado SEGÚN SU HORARIO.
+//
+//  Para cada empleado con horario y cada día activo del horario dentro del
+//  periodo se determina:
+//    - Falta          : no hay marcas ese día                -> justificable (Permiso)
+//    - Atraso         : la entrada supera inicio + tolerancia-> justificable (Con permiso)
+//    - Salida temprana: la salida es anterior a fin - tolerancia -> justificable (Con permiso)
+//
+//  Una justificación guardada convierte la incidencia en permiso y deja de
+//  contarla como falta / atraso / salida temprana.
+// ----------------------------------------------------------------
+function _secOf(ts) {
+    return _hhmmToSec(String(ts || '').slice(11, 19));
+}
+
+function getAsistencia({ desde, hasta, q, area, user_id }) {
+    if (!desde) desde = _todayIso().slice(0, 8) + '01';
+    if (!hasta) hasta = _todayIso();
+
+    const { scheds, userSched } = loadSchedules();
+    const dept = userAreaMap();
+
+    // Un registro por empleado (mismo CI puede vivir en varios equipos).
+    const usuarios = db.prepare(
+        'SELECT user_id, MAX(name) AS name FROM users GROUP BY user_id'
+    ).all();
+
+    // Marcas del periodo (+1 día por si un turno nocturno termina al día siguiente).
+    const punches = db.prepare(
+        'SELECT user_id, timestamp FROM attendance WHERE timestamp >= ? AND timestamp <= ? ORDER BY user_id, timestamp'
+    ).all(desde + ' 00:00:00', _addDays(hasta, 1) + ' 23:59:59');
+
+    const porUsuario = Object.create(null);
+    for (const p of punches) (porUsuario[p.user_id] = porUsuario[p.user_id] || []).push(p);
+
+    const justif = loadJustifications(desde, hasta);
+    const filtroQ = String(q || '').trim().toLowerCase();
+    const filtroArea = String(area || '').trim();
+    const sinArea = ['sin', '-', 'ninguno', 'null'].includes(filtroArea.toLowerCase());
+    const hoy = _todayIso();
+
+    // Días del periodo (no se evalúan días futuros).
+    const dias = [];
+    for (let d = desde; d <= hasta && d <= hoy; d = _addDays(d, 1)) dias.push(d);
+
+    const registros = [];
+    const resumen = [];
+
+    for (const u of usuarios) {
+        if (user_id && String(u.user_id) !== String(user_id)) continue;
+        const sid = userSched[u.user_id];
+        if (!sid) continue;
+        const sched = scheds[sid];
+        if (!sched) continue;
+
+        const areaInfo = dept[u.user_id] || null;
+        if (filtroArea) {
+            if (sinArea) { if (areaInfo) continue; }
+            else if (!areaInfo
+                || (String(areaInfo.nombre).toLowerCase() !== filtroArea.toLowerCase()
+                    && String(areaInfo.codigo).toLowerCase() !== filtroArea.toLowerCase())) continue;
+        }
+        const nombre = _cleanNameView(u.name);
+        if (filtroQ && !(nombre.toLowerCase().includes(filtroQ)
+            || String(u.user_id).toLowerCase().includes(filtroQ))) continue;
+
+        const marcas = porUsuario[u.user_id] || [];
+        const tol = (Number(sched.tolerance_min) || 1) * 60;
+
+        const filas = [];
+        let diasTrab = 0, faltas = 0, permisos = 0, atrasos = 0, tempranas = 0;
+        let minAtr = 0, minSal = 0;
+
+        for (const D of dias) {
+            const day = sched.days[_isoWeekday(D)];
+            if (!day || !day.start || !day.end) continue;
+            diasTrab++;
+
+            const startSec = _hhmmToSec(day.start);
+            const endSec   = _hhmmToSec(day.end);
+            const overnight = endSec <= startSec;
+
+            // Marcas que pertenecen a este turno.
+            let dm;
+            if (!overnight) {
+                dm = marcas.filter(p => String(p.timestamp).slice(0, 10) === D);
+            } else {
+                const D1 = _addDays(D, 1);
+                dm = marcas.filter(p => {
+                    const f = String(p.timestamp).slice(0, 10);
+                    if (f === D) return _secOf(p.timestamp) >= startSec;
+                    if (f === D1) return _secOf(p.timestamp) <= endSec;
+                    return false;
+                });
+            }
+
+            const entrada = dm.length ? dm[0].timestamp : null;
+            const salida  = dm.length > 1 ? dm[dm.length - 1].timestamp : null;
+
+            const jFalta  = justif[u.user_id + '|' + D + '|falta'];
+            const jAtraso = justif[u.user_id + '|' + D + '|atraso'];
+            const jSalida = justif[u.user_id + '|' + D + '|salida_temprana'];
+
+            let falta = false, permiso = false;
+            let late = false, early = false, retrasoMin = 0, salidaMin = 0;
+
+            if (!entrada) {
+                falta   = !jFalta;
+                permiso = !!jFalta;
+            } else {
+                const entSec = _secOf(entrada);
+                if (entSec > startSec + tol - 1) {
+                    late = true;
+                    retrasoMin = Math.max(0, Math.floor((entSec - startSec) / 60));
+                }
+                if (salida) {
+                    const salSec = _secOf(salida);
+                    const finSec = overnight ? endSec + 86400 : endSec;
+                    const salRel = overnight ? salSec + 86400 : salSec;
+                    if (salRel < finSec - (tol - 1)) {
+                        early = true;
+                        salidaMin = Math.max(0, Math.floor((finSec - salRel) / 60));
+                    }
+                }
+            }
+
+            const atrasoFinal  = late && !jAtraso;
+            const salidaFinal  = early && !jSalida;
+
+            let estado;
+            if (falta) estado = 'Falta';
+            else if (permiso) estado = 'Permiso';
+            else {
+                const parts = [];
+                if (atrasoFinal) parts.push('Atraso');
+                if (salidaFinal) parts.push('Salida temprana');
+                if (parts.length) estado = parts.join(' + ');
+                else if ((late && jAtraso) || (early && jSalida)) estado = 'Con permiso';
+                else estado = 'Presente';
+            }
+
+            if (falta) faltas++;
+            if (permiso) permisos++;
+            if (atrasoFinal) { atrasos++; minAtr += retrasoMin; }
+            if (salidaFinal) { tempranas++; minSal += salidaMin; }
+
+            const motivos = [];
+            if (jFalta)  motivos.push({ tipo: 'falta', reason: jFalta });
+            if (jAtraso) motivos.push({ tipo: 'atraso', reason: jAtraso });
+            if (jSalida) motivos.push({ tipo: 'salida_temprana', reason: jSalida });
+
+            filas.push({
+                date: D,
+                user_id: u.user_id,
+                name: nombre,
+                area: areaInfo ? areaInfo.nombre : '',
+                area_codigo: areaInfo ? areaInfo.codigo : '',
+                schedule_id: sid,
+                schedule_name: sched.name,
+                esperado_entrada: String(day.start).slice(0, 5),
+                esperado_salida:  String(day.end).slice(0, 5),
+                entrada,
+                salida,
+                estado,
+                falta,
+                permiso,
+                tarde: atrasoFinal,
+                salida_temprana: salidaFinal,
+                retraso_min: atrasoFinal ? retrasoMin : 0,
+                salida_min: salidaFinal ? salidaMin : 0,
+                justificada_falta: !!jFalta,
+                justificada_atraso: !!jAtraso,
+                justificada_salida: !!jSalida,
+                motivo: motivos.map(m => m.reason).join(' | '),
+                motivos,
+            });
+        }
+
+        if (!filas.length) continue;
+        registros.push(...filas);
+        resumen.push({
+            user_id: u.user_id,
+            name: nombre,
+            area: areaInfo ? areaInfo.nombre : '',
+            area_codigo: areaInfo ? areaInfo.codigo : '',
+            schedule_id: sid,
+            schedule_name: sched.name,
+            dias: diasTrab,
+            faltas,
+            permisos,
+            atrasos,
+            salidas_tempranas: tempranas,
+            total_atraso_min: minAtr,
+            total_salida_min: minSal,
+        });
+    }
+
+    resumen.sort((a, b) =>
+        (b.faltas + b.atrasos + b.salidas_tempranas) - (a.faltas + a.atrasos + a.salidas_tempranas)
+        || a.name.localeCompare(b.name, 'es'));
+    registros.sort((a, b) =>
+        a.date !== b.date ? (a.date < b.date ? -1 : 1)
+        : String(a.name).localeCompare(String(b.name), 'es'));
+
+    return { desde, hasta, resumen, registros };
 }
 
 // ----------------------------------------------------------------
@@ -1179,6 +1313,72 @@ app.get('/api/retrasos/detalle', (req, res) => {
 });
 
 // ----------------------------------------------------------------
+//  API: Asistencia (evaluación por horario)
+//  GET /api/asistencia  -> { resumen, registros }
+// ----------------------------------------------------------------
+app.get('/api/asistencia', (req, res) => {
+    let { desde, hasta, q, area, user_id } = req.query;
+    if (!desde) desde = _todayIso().slice(0, 8) + '01';
+    if (!hasta) hasta = _todayIso();
+    res.json(getAsistencia({ desde, hasta, q, area, user_id }));
+});
+
+// ----------------------------------------------------------------
+//  API: Justificaciones
+//  POST   : crea/actualiza la justificación (falta / atraso / salida temprana)
+//  DELETE : elimina la justificación de una incidencia
+// ----------------------------------------------------------------
+const TIPOS_JUST = ['falta', 'atraso', 'salida_temprana'];
+
+app.post('/api/justificaciones', (req, res) => {
+    const { user_id, date, tipo, reason } = req.body || {};
+    const uid = String(user_id || '').trim();
+    const d   = String(date || '').trim().slice(0, 10);
+    const t   = String(tipo || '').trim();
+    const r   = String(reason || '').trim();
+
+    if (!uid || !d || !t) return res.status(400).json({ success: false, error: 'user_id, date y tipo son obligatorios' });
+    if (!TIPOS_JUST.includes(t)) return res.status(400).json({ success: false, error: 'tipo inválido' });
+    if (!r) return res.status(400).json({ success: false, error: 'Describe el motivo de la justificación' });
+
+    try {
+        db.run(
+            `INSERT INTO justifications (user_id, date, tipo, reason, created_at) VALUES (?, ?, ?, ?, ?)
+             ON CONFLICT(user_id, date, tipo) DO UPDATE SET reason = excluded.reason, created_at = excluded.created_at`,
+            uid, d, t, r, new Date().toISOString()
+        );
+        db.save();
+        res.json({ success: true, user_id: uid, date: d, tipo: t, reason: r });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+app.delete('/api/justificaciones', (req, res) => {
+    const uid = String(req.query.user_id || '').trim();
+    const d   = String(req.query.date || '').trim().slice(0, 10);
+    const t   = String(req.query.tipo || '').trim();
+    if (!uid || !d || !t) return res.status(400).json({ success: false, error: 'user_id, date y tipo son obligatorios' });
+    try {
+        const info = db.run('DELETE FROM justifications WHERE user_id = ? AND date = ? AND tipo = ?', uid, d, t);
+        db.save();
+        res.json({ success: true, changes: info.changes });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+app.get('/api/justificaciones', (req, res) => {
+    let { desde, hasta, user_id } = req.query;
+    let where = '1=1';
+    const params = [];
+    if (desde) { where += ' AND date >= ?'; params.push(String(desde).slice(0, 10)); }
+    if (hasta) { where += ' AND date <= ?'; params.push(String(hasta).slice(0, 10)); }
+    if (user_id) { where += ' AND user_id = ?'; params.push(String(user_id)); }
+    res.json(db.prepare(`SELECT user_id, date, tipo, reason, created_at FROM justifications WHERE ${where} ORDER BY date, user_id`).all(...params));
+});
+
+// ----------------------------------------------------------------
 //  API: Dispositivos configurados
 // ----------------------------------------------------------------
 app.get('/api/devices', (req, res) => {
@@ -1449,6 +1649,71 @@ app.get('/api/export/retrasos-detalle/excel', async (req, res) => {
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="atrasos_detalle_${desde}_${hasta}.xlsx"`);
+    await wb.xlsx.write(res);
+    res.end();
+});
+
+// ----------------------------------------------------------------
+//  API: Exportar a Excel la asistencia (resumen + detalle por día)
+// ----------------------------------------------------------------
+app.get('/api/export/asistencia/excel', async (req, res) => {
+    let { desde, hasta, q, area, user_id } = req.query;
+    if (!desde) desde = _todayIso().slice(0, 8) + '01';
+    if (!hasta) hasta = _todayIso();
+
+    const { resumen, registros } = getAsistencia({ desde, hasta, q, area, user_id });
+    const fmtDate = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+
+    const wb = new ExcelJS.Workbook();
+
+    const ws = wb.addWorksheet('Resumen');
+    ws.columns = [
+        { header: 'CI',              key: 'user_id',  width: 16 },
+        { header: 'Nombre',          key: 'name',     width: 32 },
+        { header: 'Área',            key: 'area',     width: 22 },
+        { header: 'Horario',         key: 'schedule_name', width: 20 },
+        { header: 'Días',            key: 'dias',     width: 10 },
+        { header: 'Faltas',          key: 'faltas',   width: 10 },
+        { header: 'Permisos',        key: 'permisos', width: 11 },
+        { header: 'Atrasos',         key: 'atrasos',  width: 10 },
+        { header: 'Sal. temprana',   key: 'st',       width: 13 },
+        { header: 'Total atraso (min)', key: 'min',   width: 18 },
+    ];
+    _estiloCabeceraAtrasos(ws.getRow(1));
+    for (const r of resumen) {
+        ws.addRow({
+            user_id: r.user_id, name: r.name, area: r.area || '', schedule_name: r.schedule_name,
+            dias: r.dias, faltas: r.faltas, permisos: r.permisos, atrasos: r.atrasos,
+            st: r.salidas_tempranas, min: r.total_atraso_min,
+        });
+    }
+
+    const wd = wb.addWorksheet('Detalle por día');
+    wd.columns = [
+        { header: 'CI',          key: 'user_id',  width: 16 },
+        { header: 'Nombre',      key: 'name',     width: 32 },
+        { header: 'Área',        key: 'area',     width: 22 },
+        { header: 'Fecha',       key: 'fecha',    width: 13 },
+        { header: 'Horario',     key: 'horario',  width: 16 },
+        { header: 'Entrada',     key: 'entrada',  width: 11 },
+        { header: 'Salida',      key: 'salida',   width: 11 },
+        { header: 'Estado',      key: 'estado',   width: 20 },
+        { header: 'Motivo',      key: 'motivo',   width: 40 },
+    ];
+    _estiloCabeceraAtrasos(wd.getRow(1));
+    for (const r of registros) {
+        wd.addRow({
+            user_id: r.user_id, name: r.name, area: r.area || '', fecha: fmtDate(r.date),
+            horario: `${r.esperado_entrada}-${r.esperado_salida}`,
+            entrada: (r.entrada || '').slice(11, 19),
+            salida: (r.salida || '').slice(11, 19),
+            estado: r.estado,
+            motivo: r.motivo || '',
+        });
+    }
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="asistencia_${desde}_${hasta}.xlsx"`);
     await wb.xlsx.write(res);
     res.end();
 });

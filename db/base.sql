@@ -54,6 +54,15 @@ CREATE TABLE user_schedules (
         schedule_id INTEGER,
         updated_at TEXT
     );
+CREATE TABLE justifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        date TEXT NOT NULL,
+        tipo TEXT NOT NULL,
+        reason TEXT,
+        created_at TEXT,
+        UNIQUE(user_id, date, tipo)
+    );
 CREATE TABLE meta (
         key TEXT PRIMARY KEY,
         value TEXT
@@ -75,3 +84,5 @@ CREATE INDEX idx_att_user     ON attendance(user_id);
 CREATE INDEX idx_user_areas_area ON user_areas(area_code);
 CREATE INDEX idx_sched_days   ON schedule_days(schedule_id);
 CREATE INDEX idx_user_scheds  ON user_schedules(schedule_id);
+CREATE INDEX idx_just_user    ON justifications(user_id);
+CREATE INDEX idx_just_date    ON justifications(date);
