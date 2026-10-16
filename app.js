@@ -285,6 +285,22 @@ function _addDays(iso, n) {
 // el horario del empleado.
 //   - ENTRADA = primera marca del día.
 //   - SALIDA  = última marca del día (null si solo hay una marca).
+// Elige la entrada y la salida de un día. Las marcas MANUALES (device_id = 0,
+// cargadas desde la ventana secreta) mandan por encima de las del biométrico:
+// si se corrigió la entrada o la salida, esa corrección es la que se ve en
+// Entradas/Salidas (y en Asistencia).
+function _pickJornada(marks) {
+    const manEnt = marks.filter(m => Number(m.device_id) === 0 && Number(m.punch) !== 1);
+    const manSal = marks.filter(m => Number(m.device_id) === 0 && Number(m.punch) === 1);
+    let entrada = manEnt.length ? manEnt[manEnt.length - 1].timestamp
+                               : (marks.length ? marks[0].timestamp : null);
+    let salida = manSal.length ? manSal[manSal.length - 1].timestamp
+                              : (marks.length > 1 ? marks[marks.length - 1].timestamp : null);
+    if (entrada && salida && _ts(salida) <= _ts(entrada)) salida = null;
+    const conNombre = marks.find(m => m.name && String(m.name).trim());
+    return { entrada, salida, name: conNombre ? conNombre.name : '' };
+}
+
 function _buildJornadas(punches) {
     const perUser = Object.create(null);
     for (const p of punches) (perUser[p.user_id] = perUser[p.user_id] || []).push(p);
@@ -299,12 +315,13 @@ function _buildJornadas(punches) {
 
         for (const d of Object.keys(byDate).sort()) {
             const marks = byDate[d].sort((a, b) => _ts(a.timestamp) - _ts(b.timestamp));
+            const j = _pickJornada(marks);
             out.push({
                 date: d,
                 user_id: uid,
-                name: marks[0].name,
-                entrada: marks[0].timestamp,
-                salida: marks.length > 1 ? marks[marks.length - 1].timestamp : null,
+                name: j.name,
+                entrada: j.entrada,
+                salida: j.salida,
                 marcaciones: marks.length,
                 inferida: 0,
             });
@@ -338,7 +355,7 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, area }) {
     }
 
     const punches = db.prepare(
-        `SELECT user_id, name, timestamp, punch, status FROM attendance WHERE ${where} ORDER BY user_id, timestamp`
+        `SELECT user_id, name, timestamp, punch, status, device_id FROM attendance WHERE ${where} ORDER BY user_id, timestamp`
     ).all(...params);
 
     // El área es un atributo local del empleado: se resuelve desde la tabla
@@ -560,7 +577,7 @@ function getAsistencia({ desde, hasta, q, area, user_id }) {
 
     // Marcas del periodo (+1 día por si un turno nocturno termina al día siguiente).
     const punches = db.prepare(
-        'SELECT user_id, timestamp FROM attendance WHERE timestamp >= ? AND timestamp <= ? ORDER BY user_id, timestamp'
+        'SELECT user_id, timestamp, punch, device_id FROM attendance WHERE timestamp >= ? AND timestamp <= ? ORDER BY user_id, timestamp'
     ).all(desde + ' 00:00:00', _addDays(hasta, 1) + ' 23:59:59');
 
     const porUsuario = Object.create(null);
@@ -627,8 +644,9 @@ function getAsistencia({ desde, hasta, q, area, user_id }) {
                 });
             }
 
-            const entrada = dm.length ? dm[0].timestamp : null;
-            const salida  = dm.length > 1 ? dm[dm.length - 1].timestamp : null;
+            const _j = _pickJornada(dm);
+            const entrada = _j.entrada;
+            const salida  = _j.salida;
 
             const jFalta  = justif[u.user_id + '|' + D + '|falta'];
             const jAtraso = justif[u.user_id + '|' + D + '|atraso'];
@@ -1550,50 +1568,32 @@ app.post('/api/attendance/manual', (req, res) => {
     if (sal && !timeRe.test(sal)) return res.status(400).json({ success: false, error: 'Formato de salida inválido (HH:MM)' });
 
     try {
+        const urow = db.prepare('SELECT MAX(name) AS name FROM users WHERE user_id = ?').get(uid);
+        const nombre = urow && urow.name ? urow.name : '';
+
         const existing = db.prepare(
             'SELECT id, punch, timestamp FROM attendance WHERE user_id = ? AND date(timestamp) = ? AND device_id = 0 ORDER BY timestamp'
         ).all(uid, d);
 
-        if (existing.length === 0) {
-            // No hay marca manual para ese día: insertar las que vengan
-            const nowIso = new Date().toISOString();
-            if (ent) {
-                db.run(
-                    'INSERT INTO attendance (device_id, user_id, name, timestamp, status, punch, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                    0, uid, '', `${d} ${ent}:00`, 0, 0, nowIso
-                );
-            }
-            if (sal) {
-                db.run(
-                    'INSERT INTO attendance (device_id, user_id, name, timestamp, status, punch, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                    0, uid, '', `${d} ${sal}:00`, 0, 1, nowIso
-                );
-            }
-        } else {
-            // Ya existe: actualizar entrada (punch 0) y/o salida (punch 1)
-            if (ent) {
-                const e = existing.find(x => x.punch === 0);
-                if (e) {
-                    db.run('UPDATE attendance SET timestamp = ? WHERE id = ?', `${d} ${ent}:00`, e.id);
-                } else {
-                    db.run(
-                        'INSERT INTO attendance (device_id, user_id, name, timestamp, status, punch, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                        0, uid, '', `${d} ${ent}:00`, 0, 0, new Date().toISOString()
-                    );
-                }
-            }
-            if (sal) {
-                const s = existing.find(x => x.punch === 1);
-                if (s) {
-                    db.run('UPDATE attendance SET timestamp = ? WHERE id = ?', `${d} ${sal}:00`, s.id);
-                } else {
-                    db.run(
-                        'INSERT INTO attendance (device_id, user_id, name, timestamp, status, punch, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                        0, uid, '', `${d} ${sal}:00`, 0, 1, new Date().toISOString()
-                    );
-                }
-            }
+        const nowIso = new Date().toISOString();
+        // Las marcas manuales imitan a las del biométrico: status = 1 (verificación).
+        const insertar = (punch, ts) => db.run(
+            'INSERT INTO attendance (device_id, user_id, name, timestamp, status, punch, synced_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            0, uid, nombre, ts, 1, punch, nowIso
+        );
+        const actualizar = (id, ts) => db.run(
+            'UPDATE attendance SET timestamp = ?, status = 1, name = ? WHERE id = ?', ts, nombre, id
+        );
+
+        if (ent) {
+            const e = existing.find(x => Number(x.punch) !== 1);
+            if (e) actualizar(e.id, `${d} ${ent}:00`); else insertar(0, `${d} ${ent}:00`);
         }
+        if (sal) {
+            const s = existing.find(x => Number(x.punch) === 1);
+            if (s) actualizar(s.id, `${d} ${sal}:00`); else insertar(1, `${d} ${sal}:00`);
+        }
+
         db.save();
         res.json({ success: true, user_id: uid, date: d, entrada: ent, salida: sal });
     } catch (e) {
@@ -1624,6 +1624,12 @@ app.delete('/api/devices/:id', (req, res) => {
     if (!id) return res.status(400).json({ error: 'id invalido' });
     db.run('DELETE FROM attendance WHERE device_id = ?', id);
     db.run('DELETE FROM users WHERE device_id = ?', id);
+    // Limpieza: al borrar los usuarios de un equipo tambien se van sus
+    // relaciones locales (area, horario, justificaciones). Sin esto quedan
+    // registros huerfanos que inflan los conteos.
+    db.run('DELETE FROM user_areas     WHERE user_id NOT IN (SELECT user_id FROM users)');
+    db.run('DELETE FROM user_schedules WHERE user_id NOT IN (SELECT user_id FROM users)');
+    db.run('DELETE FROM justifications WHERE user_id NOT IN (SELECT user_id FROM users)');
     const info = db.run('DELETE FROM devices WHERE id = ?', id);
     db.save();
     res.json({ success: true, changes: info.changes });
