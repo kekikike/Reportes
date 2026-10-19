@@ -24,6 +24,7 @@ dist/
 *.sqlite3
 
 # Respaldos de la base (contienen datos de produccion)
+respaldos/
 reportes.db.bak*
 reportes.db.pre-*
 reportes.db.consolidated-*
