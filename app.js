@@ -170,6 +170,9 @@ function _isoWeekday(isoDate) {
 }
 
 // Carga horarios + dias + asignaciones en un solo paso.
+// `history` guarda, por empleado, la lista ordenada de fotos del horario con
+// su fecha/hora de vigencia. `userSched` sigue siendo la asignacion ACTUAL
+// (la que muestra la UI); el historial es el que manda al evaluar el pasado.
 function loadSchedules() {
     const scheds = Object.create(null);
     for (const s of db.all('SELECT id, name, tolerance_min FROM schedules')) {
@@ -188,7 +191,79 @@ function loadSchedules() {
     for (const r of db.all('SELECT user_id, schedule_id FROM user_schedules WHERE schedule_id IS NOT NULL')) {
         userSched[r.user_id] = r.schedule_id;
     }
-    return { scheds, userSched };
+
+    const history = Object.create(null);
+    for (const r of db.all(
+        `SELECT user_id, schedule_id, schedule_name, tolerance_min, days_json, valid_from
+           FROM user_schedule_history
+          ORDER BY user_id, valid_from, id`
+    )) {
+        let days = Object.create(null);
+        if (r.days_json) {
+            try {
+                const parsed = JSON.parse(r.days_json);
+                if (parsed && typeof parsed === 'object') days = parsed;
+            } catch (e) { /* foto corrupta: se ignora */ }
+        }
+        const snap = r.schedule_id ? {
+            id: r.schedule_id,
+            name: r.schedule_name || '',
+            tolerance_min: Number(r.tolerance_min) || 1,
+            days,
+        } : null;
+        (history[r.user_id] = history[r.user_id] || []).push({
+            valid_from: String(r.valid_from),
+            schedule: snap,
+        });
+    }
+
+    return { scheds, userSched, history };
+}
+
+// Foto completa de un horario. Se guarda en el historial para que un cambio
+// posterior (reasignacion o edicion de la plantilla) no reescriba el pasado.
+function _scheduleSnapshot(sid) {
+    const s = db.get('SELECT id, name, tolerance_min FROM schedules WHERE id = ?', sid);
+    if (!s) return null;
+    const days = Object.create(null);
+    for (const d of db.all('SELECT weekday, start_time, end_time FROM schedule_days WHERE schedule_id = ?', sid)) {
+        days[Number(d.weekday)] = { start: d.start_time, end: d.end_time };
+    }
+    return { id: s.id, name: s.name, tolerance_min: Number(s.tolerance_min) || 1, days };
+}
+
+// Agrega una foto del horario vigente desde `at` (fecha/hora local).
+function _addScheduleHistory(userId, sid, at) {
+    const snap = sid ? _scheduleSnapshot(sid) : null;
+    db.run(
+        `INSERT INTO user_schedule_history
+            (user_id, schedule_id, schedule_name, tolerance_min, days_json, valid_from, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        userId,
+        sid || null,
+        snap ? snap.name : null,
+        snap ? snap.tolerance_min : null,
+        snap ? JSON.stringify(snap.days) : null,
+        at,
+        at
+    );
+}
+
+// Horario vigente de un empleado en un instante dado. Si no hay historial
+// (BD vieja) cae a la asignacion actual. Devuelve null si en ese momento el
+// empleado no tenia horario (por ejemplo, antes de su primera asignacion).
+function _scheduleAt(loaded, userId, at) {
+    const list = loaded.history[userId];
+    if (!list || !list.length) {
+        const sid = loaded.userSched[userId];
+        return sid ? loaded.scheds[sid] : null;
+    }
+    let found = null;
+    for (const h of list) {
+        if (h.valid_from <= at) found = h.schedule;
+        else break;
+    }
+    return found;
 }
 
 // Justificaciones del periodo: { 'user_id|date|tipo' -> reason }.
@@ -211,6 +286,14 @@ function _todayIso() {
     return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+// Fecha/hora local en formato 'YYYY-MM-DD HH:MM:SS' (zona del equipo).
+function _localIso() {
+    const d = new Date();
+    const p = x => String(x).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} `
+         + `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
 // Evalua una jornada (entrada/salida) contra el horario del empleado.
 // Devuelve null si no hay horario/dia aplicable para esa fecha.
 function _evalHorario(entrada, salida, fecha, schedule) {
@@ -231,11 +314,15 @@ function _evalHorario(entrada, salida, fecha, schedule) {
         }
     }
 
-    let early = false, salidaMin = 0;
+    let early = false, salidaMin = 0, salidaDiffMin = null;
     if (salida) {
         const salSec = _hhmmToSec(String(salida).slice(11, 19));
         const finSec = overnight ? endSec + 86400 : endSec;
         const salRel = overnight ? salSec + 86400 : salSec;
+        // Diferencia real contra la hora de salida esperada:
+        //   positiva = salio antes (adelanto)
+        //   negativa = salio despues
+        salidaDiffMin = Math.round((finSec - salRel) / 60);
         if (salRel < finSec - (tol - 1)) {
             early = true;
             salidaMin = Math.max(0, Math.floor((finSec - salRel) / 60));
@@ -245,7 +332,7 @@ function _evalHorario(entrada, salida, fecha, schedule) {
     return {
         esperado: String(day.start).slice(0, 5),
         esperado_salida: String(day.end).slice(0, 5),
-        late, retrasoMin, early, salidaMin,
+        late, retrasoMin, early, salidaMin, salidaDiffMin,
     };
 }
 
@@ -371,7 +458,12 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, area }) {
     let rows = _buildJornadas(punches).map(j => {
         const d = dept[j.user_id];
         const fecha = (j.entrada || '').slice(0, 10);
-        const ev = _evalHorario(j.entrada, j.salida, fecha, sched.scheds[sched.userSched[j.user_id]]);
+        // Horario vigente EN ESE MOMENTO: si el empleado fue cambiado de
+        // horario despues de entrar, su dia se sigue evaluando con el
+        // horario que tenia al entrar. Los dias sin marca usan el vigente
+        // al inicio del dia (asi una falta pasada no cambia de horario).
+        const at = j.entrada || (fecha + ' 00:00:00');
+        const ev = _evalHorario(j.entrada, j.salida, fecha, _scheduleAt(sched, j.user_id, at));
         const jAtraso = justif[j.user_id + '|' + fecha + '|atraso'];
         const jSalida = justif[j.user_id + '|' + fecha + '|salida_temprana'];
         // Un atraso/salida justificada deja de contarse (pasa a "con permiso").
@@ -414,6 +506,7 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, area }) {
             retraso_min: late ? ev.retrasoMin : 0,
             retraso_seg: late ? ev.retrasoMin * 60 : 0,
             salida_min: early ? ev.salidaMin : 0,
+            salida_diff_min: ev ? ev.salidaDiffMin : null,
         };
     });
 
@@ -422,17 +515,20 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, area }) {
     // falta justificada se convierte en "Permiso" (verde).
     const yaVistos = new Set(rows.map(r => r.user_id + '|' + r.date));
     const nombres = Object.create(null);
-    if (Object.keys(sched.userSched).length) {
-        for (const u of db.all('SELECT user_id, MAX(name) AS name FROM users GROUP BY user_id')) {
-            nombres[u.user_id] = _cleanNameView(u.name);
-        }
+    for (const u of db.all('SELECT user_id, MAX(name) AS name FROM users GROUP BY user_id')) {
+        nombres[u.user_id] = _cleanNameView(u.name);
     }
+    // Se incluyen los usuarios con horario actual Y los que tienen historial
+    // (por ejemplo, ya desafectados): sus dias pasados conservan evaluacion.
+    const allUids = new Set([...Object.keys(sched.userSched), ...Object.keys(sched.history)]);
+    for (const uid of [...allUids]) if (!(uid in nombres)) allUids.delete(uid);
+
     const filtroQ = String(q || '').trim().toLowerCase();
     const listaUsers = users ? String(users).split(',').map(s => s.trim()).filter(Boolean) : null;
     const pisoGlobal = _addDays(hoy, -400); // techo de seguridad (máx. ~400 días)
     const MAX_DIAS = 400;
 
-    for (const uid of Object.keys(sched.userSched)) {
+    for (const uid of allUids) {
         if (user_id && String(uid) !== String(user_id)) continue;
         if (listaUsers && listaUsers.length && !listaUsers.includes(uid)) continue;
         if (filtroQ) {
@@ -440,15 +536,16 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, area }) {
             if (!nm.includes(filtroQ) && !String(uid).toLowerCase().includes(filtroQ)) continue;
         }
 
-        const sch = sched.scheds[sched.userSched[uid]];
-        if (!sch) continue;
-
         let d = desde;
         if (d < pisoGlobal) d = pisoGlobal;
 
         const dpt = dept[uid];
         let n = 0;
         for (; d <= hasta && d <= hoy && n < MAX_DIAS; d = _addDays(d, 1), n++) {
+            // Horario vigente al inicio del dia. Si ese dia no tenia
+            // horario, no corresponde generar una falta.
+            const sch = _scheduleAt(sched, uid, d + ' 00:00:00');
+            if (!sch) continue;
             const day = sch.days[_isoWeekday(d)];
             if (!day || !day.start || !day.end) continue;
             if (!_horarioPasado(d, day, hoy)) continue;
@@ -483,6 +580,7 @@ function getJornadas({ desde, hasta, q, users, user_id, orden, area }) {
                 retraso_min: 0,
                 retraso_seg: 0,
                 salida_min: 0,
+                salida_diff_min: null,
             });
         }
     }
@@ -526,6 +624,8 @@ function getRetrasos({ desde, hasta, q, area, user_id }) {
         hora_esperada: r.hora_esperada,
         entrada: r.entrada,
         salida: r.salida,
+        esperado_salida: r.esperado_salida,
+        salida_diff_min: r.salida_diff_min,
         retraso_min: r.retraso_min,
         retraso_seg: r.retraso_seg,
     }));
@@ -567,7 +667,8 @@ function getAsistencia({ desde, hasta, q, area, user_id }) {
     if (!desde) desde = _todayIso().slice(0, 8) + '01';
     if (!hasta) hasta = _todayIso();
 
-    const { scheds, userSched } = loadSchedules();
+    const loaded = loadSchedules();
+    const { userSched, history } = loaded;
     const dept = userAreaMap();
 
     // Un registro por empleado (mismo CI puede vivir en varios equipos).
@@ -598,10 +699,8 @@ function getAsistencia({ desde, hasta, q, area, user_id }) {
 
     for (const u of usuarios) {
         if (user_id && String(u.user_id) !== String(user_id)) continue;
-        const sid = userSched[u.user_id];
-        if (!sid) continue;
-        const sched = scheds[sid];
-        if (!sched) continue;
+        // Se evalua a quien tenga horario actual o historial de horarios.
+        if (!userSched[u.user_id] && !history[u.user_id]) continue;
 
         const areaInfo = dept[u.user_id] || null;
         if (filtroArea) {
@@ -615,16 +714,26 @@ function getAsistencia({ desde, hasta, q, area, user_id }) {
             || String(u.user_id).toLowerCase().includes(filtroQ))) continue;
 
         const marcas = porUsuario[u.user_id] || [];
-        const tol = (Number(sched.tolerance_min) || 1) * 60;
 
         const filas = [];
         let diasTrab = 0, faltas = 0, permisos = 0, atrasos = 0, tempranas = 0;
         let minAtr = 0, minSal = 0;
+        let ultimoSch = null;
 
         for (const D of dias) {
-            const day = sched.days[_isoWeekday(D)];
+            // Horario vigente ese dia. Se ancla en la primera ENTRADA del dia
+            // (si existe) para respetar un cambio de horario hecho antes o
+            // despues de entrar; sin marcas se usa el vigente a las 00:00.
+            const primera = marcas.find(p => String(p.timestamp).slice(0, 10) === D && Number(p.punch) !== 1)
+                || marcas.find(p => String(p.timestamp).slice(0, 10) === D);
+            const at = primera ? primera.timestamp : (D + ' 00:00:00');
+            const sch = _scheduleAt(loaded, u.user_id, at);
+            if (!sch) continue;
+            const day = sch.days[_isoWeekday(D)];
             if (!day || !day.start || !day.end) continue;
             diasTrab++;
+            ultimoSch = sch;
+            const tol = (Number(sch.tolerance_min) || 1) * 60;
 
             const startSec = _hhmmToSec(day.start);
             const endSec   = _hhmmToSec(day.end);
@@ -706,8 +815,8 @@ function getAsistencia({ desde, hasta, q, area, user_id }) {
                 name: nombre,
                 area: areaInfo ? areaInfo.nombre : '',
                 area_codigo: areaInfo ? areaInfo.codigo : '',
-                schedule_id: sid,
-                schedule_name: sched.name,
+                schedule_id: sch.id,
+                schedule_name: sch.name,
                 esperado_entrada: String(day.start).slice(0, 5),
                 esperado_salida:  String(day.end).slice(0, 5),
                 entrada,
@@ -734,8 +843,8 @@ function getAsistencia({ desde, hasta, q, area, user_id }) {
             name: nombre,
             area: areaInfo ? areaInfo.nombre : '',
             area_codigo: areaInfo ? areaInfo.codigo : '',
-            schedule_id: sid,
-            schedule_name: sched.name,
+            schedule_id: ultimoSch ? ultimoSch.id : null,
+            schedule_name: ultimoSch ? ultimoSch.name : '',
             dias: diasTrab,
             faltas,
             permisos,
@@ -1332,6 +1441,15 @@ app.post('/api/schedules', (req, res) => {
             db.run('DELETE FROM schedule_days WHERE schedule_id = ?', sid);
             const insD = db.prepare('INSERT INTO schedule_days (schedule_id, weekday, start_time, end_time) VALUES (?, ?, ?, ?)');
             for (const d of lista) insD.run(sid, d.weekday, d.start, d.end);
+            // Si se edito un horario existente, sus empleados pasan a una
+            // nueva version desde este momento. Los dias anteriores conservan
+            // la foto que ya estaba en el historial.
+            if (id && sid) {
+                const at = _localIso();
+                for (const u of db.all('SELECT user_id FROM user_schedules WHERE schedule_id = ?', sid)) {
+                    _addScheduleHistory(u.user_id, sid, at);
+                }
+            }
             return sid;
         });
         const sid = tx();
@@ -1345,6 +1463,12 @@ app.post('/api/schedules', (req, res) => {
 app.delete('/api/schedules/:id', (req, res) => {
     const id = parseInt(req.params.id);
     if (!id) return res.status(400).json({ success: false, error: 'id invalido' });
+    // Los empleados que tenian este horario quedan SIN horario desde ahora;
+    // sus dias anteriores conservan la foto historica del horario eliminado.
+    const at = _localIso();
+    for (const u of db.all('SELECT user_id FROM user_schedules WHERE schedule_id = ?', id)) {
+        _addScheduleHistory(u.user_id, null, at);
+    }
     db.run('DELETE FROM user_schedules WHERE schedule_id = ?', id);
     db.run('DELETE FROM schedule_days WHERE schedule_id = ?', id);
     const info = db.run('DELETE FROM schedules WHERE id = ?', id);
@@ -1358,6 +1482,18 @@ app.put('/api/users/:user_id/schedule', (req, res) => {
     const { schedule_id } = req.body || {};
     try {
         const sid = (schedule_id === '' || schedule_id === null || schedule_id === undefined) ? null : Number(schedule_id);
+        if (sid !== null && (!Number.isInteger(sid) || sid <= 0)) {
+            return res.status(400).json({ success: false, error: 'schedule_id invalido' });
+        }
+        if (sid && !db.get('SELECT id FROM schedules WHERE id = ?', sid)) {
+            return res.status(404).json({ success: false, error: 'El horario no existe' });
+        }
+        // Solo se agrega historial cuando la asignacion realmente cambia.
+        const cur = db.get('SELECT schedule_id FROM user_schedules WHERE user_id = ?', userId);
+        const curSid = cur ? Number(cur.schedule_id) : null;
+        if (curSid !== sid) {
+            _addScheduleHistory(userId, sid, _localIso());
+        }
         if (!sid) {
             db.run('DELETE FROM user_schedules WHERE user_id = ?', userId);
         } else {
@@ -1629,6 +1765,7 @@ app.delete('/api/devices/:id', (req, res) => {
     // registros huerfanos que inflan los conteos.
     db.run('DELETE FROM user_areas     WHERE user_id NOT IN (SELECT user_id FROM users)');
     db.run('DELETE FROM user_schedules WHERE user_id NOT IN (SELECT user_id FROM users)');
+    db.run('DELETE FROM user_schedule_history WHERE user_id NOT IN (SELECT user_id FROM users)');
     db.run('DELETE FROM justifications WHERE user_id NOT IN (SELECT user_id FROM users)');
     const info = db.run('DELETE FROM devices WHERE id = ?', id);
     db.save();
@@ -1827,6 +1964,7 @@ app.get('/api/export/retrasos/excel', async (req, res) => {
     if (!hasta) hasta = '2099-12-31';
 
     const { resumen } = getRetrasos({ desde, hasta, q, area });
+    const fmtDate = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Atrasos');
@@ -1837,7 +1975,12 @@ app.get('/api/export/retrasos/excel', async (req, res) => {
         { header: 'Atrasos',     key: 'retrasos', width: 12 },
         { header: 'Total (min)', key: 'total_min',width: 14 },
     ];
-    _estiloCabeceraAtrasos(ws.getRow(1));
+    // Primera fila: periodo establecido por el filtro.
+    ws.spliceRows(1, 0, [`Periodo: ${fmtDate(desde)} al ${fmtDate(hasta)}`]);
+    ws.mergeCells('A1:E1');
+    ws.getRow(1).font = { bold: true, size: 12 };
+    ws.getRow(1).alignment = { horizontal: 'center' };
+    _estiloCabeceraAtrasos(ws.getRow(2));
     for (const r of resumen) {
         ws.addRow({ user_id: r.user_id, name: r.name, area: r.area || '', retrasos: r.retrasos, total_min: r.total_min });
     }
@@ -1866,6 +2009,9 @@ app.get('/api/export/retrasos-detalle/excel', async (req, res) => {
         { header: 'Hora esperada', key: 'esperado', width: 16 },
         { header: 'Entrada',       key: 'entrada',  width: 14 },
         { header: 'Retraso (min)', key: 'retraso',  width: 14 },
+        { header: 'Hora esperada salida', key: 'esperado_salida', width: 20 },
+        { header: 'Hora real salida',     key: 'salida_real',     width: 16 },
+        { header: 'Diferencia (min)',     key: 'salida_diff',     width: 16 },
     ];
     _estiloCabeceraAtrasos(ws.getRow(1));
     for (const r of detalle) {
@@ -1877,6 +2023,9 @@ app.get('/api/export/retrasos-detalle/excel', async (req, res) => {
             esperado: r.hora_esperada,
             entrada: (r.entrada || '').slice(11, 19),
             retraso: r.retraso_min,
+            esperado_salida: r.esperado_salida || '',
+            salida_real: (r.salida || '').slice(11, 19),
+            salida_diff: (r.salida_diff_min === null || r.salida_diff_min === undefined) ? '' : r.salida_diff_min,
         });
     }
 

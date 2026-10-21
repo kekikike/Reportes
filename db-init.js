@@ -85,6 +85,21 @@ const SCHEMA_SQL = `
         updated_at TEXT
     );
 
+    -- Historial versionado de la asignacion de horario. Cada fila guarda una
+    -- FOTO del horario vigente desde valid_from (fecha/hora local). Asi los
+    -- dias anteriores conservan el horario que tenian y los cambios no
+    -- reescriben el pasado. schedule_id NULL = sin horario desde ese momento.
+    CREATE TABLE IF NOT EXISTS user_schedule_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        schedule_id INTEGER,
+        schedule_name TEXT,
+        tolerance_min INTEGER,
+        days_json TEXT,
+        valid_from TEXT NOT NULL,
+        created_at TEXT
+    );
+
     -- Justificaciones de asistencia. Una justificacion convierte una falta en
     -- permiso y un atraso / salida temprana en "con permiso".
     --   tipo: 'falta' | 'atraso' | 'salida_temprana'
@@ -124,6 +139,7 @@ const SCHEMA_SQL = `
     CREATE INDEX IF NOT EXISTS idx_user_areas_area ON user_areas(area_code);
     CREATE INDEX IF NOT EXISTS idx_sched_days   ON schedule_days(schedule_id);
     CREATE INDEX IF NOT EXISTS idx_user_scheds  ON user_schedules(schedule_id);
+    CREATE INDEX IF NOT EXISTS idx_user_sched_hist ON user_schedule_history(user_id, valid_from);
     CREATE INDEX IF NOT EXISTS idx_just_user    ON justifications(user_id);
     CREATE INDEX IF NOT EXISTS idx_just_date    ON justifications(date);
 `;
@@ -192,6 +208,36 @@ function migrate(db) {
     // Garantiza que todo codigo referenciado en user_areas exista en areas
     // (por si la relacion llego de una BD donde la tabla de areas no estaba).
     db.exec("INSERT OR IGNORE INTO areas (code, name, updated_at) SELECT DISTINCT area_code, NULL, datetime('now') FROM user_areas WHERE area_code IS NOT NULL AND area_code <> ''");
+
+    // ---- Historial de horarios --------------------------------------
+    // Las BD anteriores guardaban una sola asignacion por empleado. Se
+    // siembra esa asignacion como vigente desde el inicio de los tiempos
+    // para que el pasado se siga evaluando con el horario actual. Los
+    // cambios posteriores agregan una nueva foto sin tocar los dias previos.
+    const sinHistorial = db.all(
+        `SELECT us.user_id, us.schedule_id
+           FROM user_schedules us
+          WHERE us.schedule_id IS NOT NULL
+            AND NOT EXISTS (SELECT 1 FROM user_schedule_history h WHERE h.user_id = us.user_id)`
+    );
+    for (const us of sinHistorial) {
+        const s = db.get('SELECT name, tolerance_min FROM schedules WHERE id = ?', us.schedule_id);
+        const days = Object.create(null);
+        for (const d of db.all('SELECT weekday, start_time, end_time FROM schedule_days WHERE schedule_id = ?', us.schedule_id)) {
+            days[Number(d.weekday)] = { start: d.start_time, end: d.end_time };
+        }
+        db.run(
+            `INSERT INTO user_schedule_history
+                (user_id, schedule_id, schedule_name, tolerance_min, days_json, valid_from, created_at)
+             VALUES (?, ?, ?, ?, ?, '2000-01-01 00:00:00', ?)`,
+            us.user_id,
+            us.schedule_id,
+            s ? s.name : '',
+            s ? (Number(s.tolerance_min) || 1) : 1,
+            JSON.stringify(days),
+            new Date().toISOString()
+        );
+    }
 
     // Limpieza de timestamps ISO con sufijo 'Z' que dejo una version
     // anterior. Solo corre si quedan filas: es un no-op en BD sanas.
