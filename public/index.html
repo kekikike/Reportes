@@ -171,16 +171,22 @@
     .btn-table-act.ficha:hover { background: linear-gradient(180deg, #106834, #0b4a25); }
     .btn-table-act:active { transform: scale(0.95); }
 
-    /* Ficha de justificación (vista dentro del modal) */
-    .ficha { position: relative; padding: 4px 2px 0; }
-    .ficha-logo { position: absolute; top: 0; right: 0; height: 64px; }
-    .ficha-title { font-size: 19px; color: #0f6131; border-bottom: 2px solid #0f6131; padding-bottom: 8px; margin: 0 0 4px; padding-right: 84px; }
-    .ficha-tbl { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 14px; }
-    .ficha-tbl td { border: 1px solid #cbd5e1; padding: 9px 12px; vertical-align: top; }
-    .ficha-tbl .fl { width: 150px; background: #eaf5ee; font-weight: 600; color: #0f6131; }
-    .ficha-firma { margin-top: 54px; display: flex; flex-direction: column; align-items: flex-end; }
-    .ficha-firma .linea { width: 260px; border-top: 1px solid #334155; }
-    .ficha-firma .lbl { width: 260px; text-align: center; font-size: 12px; color: #475569; margin-top: 4px; }
+    /* Ficha de justificación: documento estándar (sin logo ni firma) */
+    .ficha { padding: 6px 2px 0; color: #111827; }
+    .ficha-head { text-align: center; border-bottom: 2px solid #0f6131; padding-bottom: 12px; margin-bottom: 6px; }
+    .ficha-title { font-size: 20px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #0f6131; margin: 0; }
+    .ficha-sub { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .ficha-meta { text-align: right; font-size: 11px; color: #6b7280; margin: 10px 0 16px; }
+    .ficha-tbl, .ficha-det { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .ficha-tbl { margin-bottom: 16px; }
+    .ficha-tbl th, .ficha-tbl td, .ficha-det th, .ficha-det td { border: 1px solid #d1d5db; padding: 9px 12px; vertical-align: top; text-align: left; }
+    .ficha-sec { background: #f3f4f6; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #374151; }
+    .ficha-tbl .fl { width: 160px; background: #f9fafb; font-weight: 600; color: #374151; }
+    .ficha-det th { background: #f3f4f6; font-weight: 600; color: #374151; }
+    .ficha-det .c-tipo { width: 170px; }
+    .ficha-det .c-hora { width: 80px; white-space: nowrap; }
+    .ficha-desc { white-space: pre-wrap; }
+    .ficha-foot { margin-top: 22px; padding-top: 10px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 10.5px; color: #6b7280; }
     .rrow { cursor: pointer; }
     .rrow:hover { background: #e9f2ec; }
     .rrow.open { background: #dcefe2; font-weight: 600; }
@@ -237,8 +243,7 @@
     .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 50; }
     .modal-mask.open { display: flex; }
     .modal { background: #fff; border-radius: 12px; padding: 22px; width: 600px; max-width: 96vw; box-shadow: 0 10px 40px rgba(0,0,0,.25); position: relative; }
-    .modal-x { position: absolute; top: 10px; right: 12px; width: 30px; height: 30px; border: none; border-radius: 50%; background: #dc2626; color: #fff; font-size: 15px; font-weight: 700; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(220,38,38,.35); }
-    .modal-x:hover { background: #b91c1c; }
+    .modal > .btn-icon { position: absolute; top: 10px; right: 12px; z-index: 2; }
     .modal h2 { font-size: 17px; margin-bottom: 6px; color: #0f6131; }
     .modal .radio { flex-direction: row; align-items: center; gap: 6px; cursor: pointer; }
     .modal .radio input { accent-color: #0f6131; }
@@ -1168,32 +1173,54 @@ async function loadReport() {
 // ------------------------------------------------------------------
 //  Ficha de justificación (vista dentro de la app + impresión / PDF)
 // ------------------------------------------------------------------
-const FICHA_TITULO = { falta: 'Falta', atraso: 'Llegada tarde', salida_temprana: 'Salida temprana' };
+const FICHA_TITULO = { falta: 'Inasistencia', atraso: 'Llegada tarde', salida_temprana: 'Salida anticipada' };
 let FICHA_CTX = null;
 
-function fichaHTML(rec, logoSrc) {
+function fichaHTML(rec) {
     const fmt = d => d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : '';
+    const ahora = new Date();
+    const emitido = ahora.toLocaleDateString('es-BO') + ' '
+        + ahora.toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' });
     const motivos = (rec.motivos && rec.motivos.length)
         ? rec.motivos
         : (rec.motivo ? [{ tipo: '', reason: rec.motivo, hora: null }] : []);
-    const filas = motivos.map(m => {
-        const conHora = (m.tipo === 'atraso' || m.tipo === 'salida_temprana');
-        return (m.tipo ? `<tr><td class="fl">Tipo</td><td>${esc(FICHA_TITULO[m.tipo] || 'Justificación')}</td></tr>` : '')
-            + ((conHora && m.hora) ? `<tr><td class="fl">Hora</td><td>${esc(m.hora)}</td></tr>` : '')
-            + `<tr><td class="fl">Descripción</td><td>${esc(m.reason || '')}</td></tr>`;
+
+    const detalle = motivos.map(m => {
+        const tipo = m.tipo ? (FICHA_TITULO[m.tipo] || 'Justificación') : 'Justificación';
+        const conHora = m.tipo === 'atraso' || m.tipo === 'salida_temprana';
+        const hora = (conHora && m.hora) ? m.hora : '—';
+        return `<tr>
+            <td>${esc(tipo)}</td>
+            <td class="c-hora">${esc(hora)}</td>
+            <td class="ficha-desc">${esc(m.reason || '')}</td>
+        </tr>`;
     }).join('');
+
     return `
     <div class="ficha">
-        <img class="ficha-logo" src="${logoSrc || '/logo.png'}" alt="Logo">
-        <h2 class="ficha-title">Justificación de Asistencia</h2>
+        <div class="ficha-head">
+            <h2 class="ficha-title">Justificación de Asistencia</h2>
+            <div class="ficha-sub">Permiso de inasistencia, tardanza o salida anticipada</div>
+        </div>
+        <div class="ficha-meta">Emitido: ${emitido}</div>
+
         <table class="ficha-tbl">
+            <tr><th colspan="2" class="ficha-sec">Datos del colaborador</th></tr>
             <tr><td class="fl">CI</td><td>${esc(rec.user_id)}</td></tr>
-            <tr><td class="fl">Nombre</td><td>${esc(vist(rec.name))}</td></tr>
+            <tr><td class="fl">Nombre completo</td><td>${esc(vist(rec.name))}</td></tr>
             <tr><td class="fl">Área</td><td>${rec.area ? esc(rec.area) : '—'}</td></tr>
             <tr><td class="fl">Fecha</td><td>${fmt(rec.date)}</td></tr>
-            ${filas}
         </table>
-        <div class="ficha-firma"><div class="linea"></div><div class="lbl">Firma / Recibido</div></div>
+
+        <table class="ficha-det">
+            <thead>
+                <tr><th colspan="3" class="ficha-sec">Detalle de la justificación</th></tr>
+                <tr><th class="c-tipo">Tipo</th><th class="c-hora">Hora</th><th>Descripción</th></tr>
+            </thead>
+            <tbody>${detalle || '<tr><td>—</td><td class="c-hora">—</td><td class="ficha-desc"></td></tr>'}</tbody>
+        </table>
+
+        <div class="ficha-foot">Documento generado por el sistema de control de asistencia · ${emitido}</div>
     </div>`;
 }
 
@@ -1216,21 +1243,28 @@ function imprimirFicha() {
     if (!FICHA_CTX) return;
     const w = window.open('', '_blank');
     if (!w) { msg('Permite las ventanas emergentes para imprimir.', 'err'); return; }
-    const logo = location.origin + '/logo.png';
     const css = `
-        body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; color: #1f2937; margin: 0; padding: 32px; }
-        .ficha { position: relative; max-width: 720px; margin: 0 auto; }
-        .ficha-logo { position: absolute; top: 0; right: 0; height: 64px; }
-        .ficha-title { font-size: 19px; color: #0f6131; border-bottom: 2px solid #0f6131; padding-bottom: 8px; margin: 0 0 4px; padding-right: 84px; }
-        .ficha-tbl { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 14px; }
-        .ficha-tbl td { border: 1px solid #cbd5e1; padding: 9px 12px; vertical-align: top; }
-        .ficha-tbl .fl { width: 150px; background: #eaf5ee; font-weight: 600; color: #0f6131; }
-        .ficha-firma { margin-top: 60px; display: flex; flex-direction: column; align-items: flex-end; }
-        .ficha-firma .linea { width: 260px; border-top: 1px solid #334155; }
-        .ficha-firma .lbl { width: 260px; text-align: center; font-size: 12px; color: #475569; margin-top: 4px; }`;
+        @page { size: A4; margin: 20mm; }
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, Arial, sans-serif; color: #111827; margin: 0; padding: 0; }
+        .ficha { max-width: 100%; }
+        .ficha-head { text-align: center; border-bottom: 2px solid #0f6131; padding-bottom: 12px; margin-bottom: 6px; }
+        .ficha-title { font-size: 20px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #0f6131; margin: 0; }
+        .ficha-sub { font-size: 12px; color: #6b7280; margin-top: 4px; }
+        .ficha-meta { text-align: right; font-size: 11px; color: #6b7280; margin: 10px 0 16px; }
+        .ficha-tbl, .ficha-det { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+        .ficha-tbl { margin-bottom: 16px; }
+        .ficha-tbl th, .ficha-tbl td, .ficha-det th, .ficha-det td { border: 1px solid #9ca3af; padding: 8px 11px; vertical-align: top; text-align: left; }
+        .ficha-sec { background: #f3f4f6; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #374151; }
+        .ficha-tbl .fl { width: 160px; background: #f9fafb; font-weight: 600; color: #374151; }
+        .ficha-det th { background: #f3f4f6; font-weight: 600; color: #374151; }
+        .ficha-det .c-tipo { width: 170px; }
+        .ficha-det .c-hora { width: 80px; white-space: nowrap; }
+        .ficha-desc { white-space: pre-wrap; }
+        .ficha-foot { margin-top: 22px; padding-top: 10px; border-top: 1px solid #d1d5db; text-align: center; font-size: 10px; color: #6b7280; }`;
     const html = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
         + '<title>Justificación de Asistencia</title><style>' + css + '</style></head><body>'
-        + fichaHTML(FICHA_CTX, logo)
+        + fichaHTML(FICHA_CTX)
         + '<script>window.onload=function(){setTimeout(function(){window.print();},350);};<\/script>'
         + '</body></html>';
     w.document.write(html);
