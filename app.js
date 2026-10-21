@@ -1492,7 +1492,15 @@ app.put('/api/users/:user_id/schedule', (req, res) => {
         const cur = db.get('SELECT schedule_id FROM user_schedules WHERE user_id = ?', userId);
         const curSid = cur ? Number(cur.schedule_id) : null;
         if (curSid !== sid) {
-            _addScheduleHistory(userId, sid, _localIso());
+            // Primera vez que se le asigna un horario: rige para TODAS sus
+            // marcaciones, incluso las anteriores. Si ya tuvo uno, el cambio
+            // rige desde este momento y el pasado se conserva.
+            const yaTuvo = (curSid !== null) || !!db.get(
+                'SELECT 1 AS x FROM user_schedule_history WHERE user_id = ? AND schedule_id IS NOT NULL LIMIT 1',
+                userId
+            );
+            const at = (sid && !yaTuvo) ? '2000-01-01 00:00:00' : _localIso();
+            _addScheduleHistory(userId, sid, at);
         }
         if (!sid) {
             db.run('DELETE FROM user_schedules WHERE user_id = ?', userId);
