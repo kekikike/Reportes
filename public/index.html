@@ -184,7 +184,6 @@
     .ficha-tbl .fl { width: 160px; background: #f9fafb; font-weight: 600; color: #374151; }
     .ficha-det th { background: #f3f4f6; font-weight: 600; color: #374151; }
     .ficha-det .c-tipo { width: 170px; }
-    .ficha-det .c-hora { width: 80px; white-space: nowrap; }
     .ficha-desc { white-space: pre-wrap; }
     .ficha-foot { margin-top: 22px; padding-top: 10px; border-top: 1px solid #e5e7eb; text-align: center; font-size: 10.5px; color: #6b7280; }
     .rrow { cursor: pointer; }
@@ -1187,11 +1186,8 @@ function fichaHTML(rec) {
 
     const detalle = motivos.map(m => {
         const tipo = m.tipo ? (FICHA_TITULO[m.tipo] || 'Justificación') : 'Justificación';
-        const conHora = m.tipo === 'atraso' || m.tipo === 'salida_temprana';
-        const hora = (conHora && m.hora) ? m.hora : '—';
         return `<tr>
             <td>${esc(tipo)}</td>
-            <td class="c-hora">${esc(hora)}</td>
             <td class="ficha-desc">${esc(m.reason || '')}</td>
         </tr>`;
     }).join('');
@@ -1214,10 +1210,10 @@ function fichaHTML(rec) {
 
         <table class="ficha-det">
             <thead>
-                <tr><th colspan="3" class="ficha-sec">Detalle de la justificación</th></tr>
-                <tr><th class="c-tipo">Tipo</th><th class="c-hora">Hora</th><th>Descripción</th></tr>
+                <tr><th colspan="2" class="ficha-sec">Detalle de la justificación</th></tr>
+                <tr><th class="c-tipo">Tipo</th><th>Descripción</th></tr>
             </thead>
-            <tbody>${detalle || '<tr><td>—</td><td class="c-hora">—</td><td class="ficha-desc"></td></tr>'}</tbody>
+            <tbody>${detalle || '<tr><td>—</td><td class="ficha-desc"></td></tr>'}</tbody>
         </table>
 
         <div class="ficha-foot">Documento generado por el sistema de control de asistencia · ${emitido}</div>
@@ -1259,7 +1255,6 @@ function imprimirFicha() {
         .ficha-tbl .fl { width: 160px; background: #f9fafb; font-weight: 600; color: #374151; }
         .ficha-det th { background: #f3f4f6; font-weight: 600; color: #374151; }
         .ficha-det .c-tipo { width: 170px; }
-        .ficha-det .c-hora { width: 80px; white-space: nowrap; }
         .ficha-desc { white-space: pre-wrap; }
         .ficha-foot { margin-top: 22px; padding-top: 10px; border-top: 1px solid #d1d5db; text-align: center; font-size: 10px; color: #6b7280; }`;
     const html = '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">'
