@@ -883,6 +883,10 @@ async function syncDevice(dev, forceFull = false) {
         await zk.connect();
 
         const users = await zk.getUsers();
+        // Solo se importan marcas de usuarios que existen en el equipo.
+        // Las marcas de usuarios eliminados (p. ej. QUISBERT IVAN) quedan
+        // en el historial del biométrico, pero no vuelven a la base.
+        const validUserIds = new Set(users.map(u => String(u.userId)));
 
         const userMap = {};
         for (const u of users) {
@@ -958,6 +962,7 @@ async function syncDevice(dev, forceFull = false) {
             const insertMany = db.transaction((recs) => {
                 let count = 0;
                 for (const r of recs) {
+                    if (!validUserIds.has(String(r.userId))) continue;
                     const ts = r.timestamp instanceof Date
                         ? r.timestamp.toISOString()
                         : String(r.timestamp);
