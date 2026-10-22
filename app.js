@@ -2073,8 +2073,10 @@ app.get('/api/export/retrasos-detalle/excel', async (req, res) => {
         { header: 'Fecha',         key: 'fecha',    width: 14 },
         { header: 'Hora esperada', key: 'esperado', width: 16 },
         { header: 'Entrada',       key: 'entrada',  width: 14 },
+        { header: 'Retraso (min)', key: 'retraso',  width: 14 },
         { header: 'Hora esperada salida', key: 'esperado_salida', width: 20 },
         { header: 'Hora salida',          key: 'salida_real',     width: 16 },
+        { header: 'Diferencia (min)',     key: 'salida_diff',     width: 16 },
     ];
     _estiloCabeceraAtrasos(ws.getRow(1));
     for (const r of detalle) {
@@ -2085,8 +2087,10 @@ app.get('/api/export/retrasos-detalle/excel', async (req, res) => {
             fecha: fmtDate(r.date),
             esperado: r.hora_esperada,
             entrada: (r.entrada || '').slice(11, 19),
+            retraso: r.retraso_min,
             esperado_salida: r.esperado_salida || '',
             salida_real: (r.salida || '').slice(11, 19),
+            salida_diff: (r.salida_diff_min === null || r.salida_diff_min === undefined) ? '' : r.salida_diff_min,
         });
         // Entrada tarde: rojo. Salida antes: rojo; salida después: verde.
         if (r.retraso_min > 0) {
@@ -2094,13 +2098,15 @@ app.get('/api/export/retrasos-detalle/excel', async (req, res) => {
         }
         const diff = r.salida_diff_min;
         if (diff !== null && diff !== undefined) {
-            const cell = row.getCell('salida_real');
-            if (diff > 0) {
-                cell.font = { color: { argb: 'FFB91C1C' }, bold: true };
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
-            } else if (diff < 0) {
-                cell.font = { color: { argb: 'FF0F6131' }, bold: true };
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+            const celdas = [row.getCell('salida_real'), row.getCell('salida_diff')];
+            for (const cell of celdas) {
+                if (diff > 0) {
+                    cell.font = { color: { argb: 'FFB91C1C' }, bold: true };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+                } else if (diff < 0) {
+                    cell.font = { color: { argb: 'FF0F6131' }, bold: true };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+                }
             }
         }
     }

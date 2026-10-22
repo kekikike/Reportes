@@ -490,9 +490,10 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Fecha</th><th>Hora esperada</th><th>Entrada</th>
+                            <th>Fecha</th><th>Hora esperada</th><th>Entrada</th><th>Retraso (min)</th>
                             <th>Hora esperada salida</th>
                             <th title="Rojo = salió antes de la hora esperada; verde = salió después de la hora esperada">Hora salida</th>
+                            <th title="Positivo = salió antes de la hora esperada; negativo = salió después">Diferencia (min)</th>
                         </tr>
                     </thead>
                     <tbody id="tblRetrasoDet"></tbody>
@@ -2311,16 +2312,21 @@ async function showRetrasoDetalle(userId) {
         const salidaTitle = (dif === null || dif === undefined) ? ''
             : (dif > 0 ? 'Salió antes de la hora esperada'
                 : (dif < 0 ? 'Salió después de la hora esperada' : 'Salió a la hora esperada'));
+        const difTxt = (dif === null || dif === undefined) ? '—' : (dif > 0 ? '+' + dif : String(dif));
+        const difColor = (dif === null || dif === undefined) ? '#9ca3af'
+            : (dif > 0 ? '#b91c1c' : (dif < 0 ? '#0f6131' : '#6b7280'));
         return `
         <tr>
             <td>${fmtDate(r.date)}</td>
             <td>${esc(r.hora_esperada)}</td>
             <td><b style="color:#b91c1c" title="Entrada con atraso">${esc((r.entrada || '').slice(11, 19))}</b></td>
+            <td>${r.retraso_min}</td>
             <td>${esc(r.esperado_salida || '')}</td>
             <td style="color:${salidaColor};font-weight:700"${salidaTitle ? ` title="${salidaTitle}"` : ''}>${salidaReal ? esc(salidaReal) : '<span style="color:#9ca3af">—</span>'}</td>
+            <td style="color:${difColor};font-weight:700">${esc(difTxt)}</td>
         </tr>`;
     }).join('')
-        || '<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:20px">Sin días con atraso</td></tr>';
+        || '<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:20px">Sin días con atraso</td></tr>';
 
     const card = document.getElementById('cardRetrasoDet');
     card.style.display = 'block';
