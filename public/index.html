@@ -493,7 +493,7 @@
                             <th>Fecha</th><th>Hora esperada</th><th>Entrada</th><th>Retraso (min)</th>
                             <th>Hora esperada salida</th>
                             <th title="Rojo = salió antes de la hora esperada; verde = salió después de la hora esperada">Hora salida</th>
-                            <th title="Positivo = salió antes de la hora esperada; negativo = salió después">Diferencia (min)</th>
+                            <th title="Negativo = salió antes de la hora esperada; positivo = salió en punto o después">Diferencia (min)</th>
                         </tr>
                     </thead>
                     <tbody id="tblRetrasoDet"></tbody>
@@ -2308,13 +2308,13 @@ async function showRetrasoDetalle(userId) {
         const salidaReal = (r.salida || '').slice(11, 16);
         const dif = r.salida_diff_min;
         const salidaColor = (dif === null || dif === undefined) ? '#9ca3af'
-            : (dif > 0 ? '#b91c1c' : (dif < 0 ? '#0f6131' : '#6b7280'));
+            : (dif < 0 ? '#b91c1c' : '#0f6131');
         const salidaTitle = (dif === null || dif === undefined) ? ''
-            : (dif > 0 ? 'Salió antes de la hora esperada'
-                : (dif < 0 ? 'Salió después de la hora esperada' : 'Salió a la hora esperada'));
+            : (dif < 0 ? 'Salió antes de la hora esperada'
+                : (dif > 0 ? 'Salió después de la hora esperada' : 'Salió a la hora esperada'));
         const difTxt = (dif === null || dif === undefined) ? '—' : (dif > 0 ? '+' + dif : String(dif));
         const difColor = (dif === null || dif === undefined) ? '#9ca3af'
-            : (dif > 0 ? '#b91c1c' : (dif < 0 ? '#0f6131' : '#6b7280'));
+            : (dif < 0 ? '#b91c1c' : '#0f6131');
         return `
         <tr>
             <td>${fmtDate(r.date)}</td>

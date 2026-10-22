@@ -327,9 +327,9 @@ function _evalHorario(entrada, salida, fecha, schedule) {
         const finSec = overnight ? endSec + 86400 : endSec;
         const salRel = overnight ? salSec + 86400 : salSec;
         // Diferencia real contra la hora de salida esperada:
-        //   positiva = salio antes (adelanto)
-        //   negativa = salio despues
-        salidaDiffMin = Math.round((finSec - salRel) / 60);
+        //   negativa = salio antes (salida temprana)
+        //   positiva = salio en punto o despues
+        salidaDiffMin = Math.round((salRel - finSec) / 60);
         if (salRel < finSec - (tol - 1)) {
             early = true;
             salidaMin = Math.max(0, Math.floor((finSec - salRel) / 60));
@@ -2092,7 +2092,7 @@ app.get('/api/export/retrasos-detalle/excel', async (req, res) => {
             salida_real: (r.salida || '').slice(11, 19),
             salida_diff: (r.salida_diff_min === null || r.salida_diff_min === undefined) ? '' : r.salida_diff_min,
         });
-        // Entrada tarde: rojo. Salida antes: rojo; salida después: verde.
+        // Entrada tarde: rojo. Salida antes: rojo; en punto o después: verde.
         if (r.retraso_min > 0) {
             row.getCell('entrada').font = { color: { argb: 'FFB91C1C' }, bold: true };
         }
@@ -2100,14 +2100,15 @@ app.get('/api/export/retrasos-detalle/excel', async (req, res) => {
         if (diff !== null && diff !== undefined) {
             const celdas = [row.getCell('salida_real'), row.getCell('salida_diff')];
             for (const cell of celdas) {
-                if (diff > 0) {
+                if (diff < 0) {
                     cell.font = { color: { argb: 'FFB91C1C' }, bold: true };
                     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
-                } else if (diff < 0) {
+                } else {
                     cell.font = { color: { argb: 'FF0F6131' }, bold: true };
                     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
                 }
             }
+            row.getCell('salida_diff').numFmt = '+0;-0;0';
         }
     }
 
