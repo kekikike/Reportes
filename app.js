@@ -884,8 +884,8 @@ async function syncDevice(dev, forceFull = false) {
 
         const users = await zk.getUsers();
         // Solo se importan marcas de usuarios que existen en el equipo.
-        // Las marcas de usuarios eliminados (p. ej. QUISBERT IVAN) quedan
-        // en el historial del biométrico, pero no vuelven a la base.
+        // Las marcas de usuarios eliminados (p. ej. un usuario dado de baja)
+        // quedan en el historial del biométrico, pero no vuelven a la base.
         const validUserIds = new Set(users.map(u => String(u.userId)));
 
         const userMap = {};
