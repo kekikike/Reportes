@@ -68,6 +68,18 @@
     .btn-secondary:hover { background: linear-gradient(180deg, #fde047, #f0c84f); box-shadow: 0 4px 12px rgba(240,200,79,.45), inset 0 1px 0 rgba(255,255,255,.25); }
     .btn-secondary:active { background: linear-gradient(180deg, #e8b842, #d4a63a); }
 
+    /* Special - Dorado con anillo (acción especial de horarios) */
+    .btn-special {
+        background: linear-gradient(180deg, #fde047, #f0c84f);
+        color: #3a2f00;
+        border: 2px solid #a16207;
+        font-weight: 800;
+        letter-spacing: .2px;
+        box-shadow: 0 0 0 3px rgba(240,200,79,.30), 0 2px 8px rgba(240,200,79,.55), inset 0 1px 0 rgba(255,255,255,.40);
+    }
+    .btn-special:hover { background: linear-gradient(180deg, #fef08a, #fde047); box-shadow: 0 0 0 5px rgba(240,200,79,.28), 0 4px 14px rgba(240,200,79,.65), inset 0 1px 0 rgba(255,255,255,.45); }
+    .btn-special:active { background: linear-gradient(180deg, #facc15, #eab308); }
+
     /* Danger - Rojo (acciones destructivas) */
     .btn-danger {
         background: linear-gradient(180deg, #ef4444, #dc2626);
@@ -441,8 +453,8 @@
                     <thead>
                         <tr>
                             <th>Fecha</th><th>Hora esperada</th><th>Entrada</th><th>Retraso (min)</th>
-                            <th>Hora esperada salida</th><th>Hora real salida</th>
-                            <th title="Positivo = salió antes de la hora esperada; negativo = salió después">Diferencia (min)</th>
+                            <th>Hora esperada salida</th><th>Hora salida</th>
+                            <th title="Rojo = salió antes de la hora esperada; verde = salió después de la hora esperada">Diferencia (min)</th>
                         </tr>
                     </thead>
                     <tbody id="tblRetrasoDet"></tbody>
@@ -669,9 +681,17 @@
         <div id="schDaysBody"></div>
 
         <p class="hint">Haz clic o arrastra dentro de la barra de 24 h para fijar la hora de <b>inicio</b> y <b>fin</b>. Si el fin es anterior al inicio, el horario es <b>nocturno</b> (termina al día siguiente). Los atrasos se calculan con <b>1 minuto</b> de tolerancia: si el horario inicia 08:30, hasta 08:30:59 se considera normal.</p>
+        <p class="hint" id="schEditHint" style="margin:10px 0 0;text-align:right;display:none">
+            <b>Guardar</b> aplica el cambio a todo el historial (días pasados incluidos).
+            <b>Guardar y aplicar desde ahora</b> conserva el horario anterior en los días pasados.
+        </p>
         <div class="toolbar" style="justify-content:flex-end;margin-top:16px">
             <button class="btn btn-ghost" onclick="closeScheduleModal()">Cancelar</button>
             <button class="btn btn-primary" onclick="saveSchedule()">Guardar</button>
+            <button class="btn btn-special" id="btnSaveFromNow" style="display:none" onclick="saveSchedule(true)"
+                    title="Mantiene el horario anterior en los días pasados y aplica el nuevo desde este momento">
+                ✦ Guardar y aplicar desde ahora
+            </button>
         </div>
     </div>
 </div>
@@ -2096,6 +2116,10 @@ function openScheduleModal(id) {
     buildSchDayRows();
     document.getElementById('modalHorario').classList.add('open');
     document.getElementById('schName').focus();
+    const btnNow = document.getElementById('btnSaveFromNow');
+    if (btnNow) btnNow.style.display = s ? 'inline-flex' : 'none';
+    const hint = document.getElementById('schEditHint');
+    if (hint) hint.style.display = s ? 'block' : 'none';
 }
 
 function closeScheduleModal() {
@@ -2107,7 +2131,7 @@ function handleSchNameKey(e) {
     if (e.key === 'Enter') { e.preventDefault(); openScheduleModal(); }
 }
 
-async function saveSchedule() {
+async function saveSchedule(applyFromNow = false) {
     const name = document.getElementById('schName').value.trim();
     if (!name) { schMsg('Escribe el nombre del horario.', 'err'); return; }
 
@@ -2120,18 +2144,36 @@ async function saveSchedule() {
     }
     if (!days.length) { schMsg('Marca al menos un día con su hora de inicio y fin.', 'err'); return; }
 
+    const editando = !!editingScheduleId;
+    if (editando && applyFromNow) {
+        const ok = confirm(
+            '¿Aplicar el horario editado SOLO desde este momento?\n\n' +
+            'Los días anteriores conservarán el horario que tenían. ' +
+            'Las nuevas marcaciones usarán el horario nuevo.'
+        );
+        if (!ok) return;
+    }
+
     try {
         const body = { name, days };
-        if (editingScheduleId) body.id = editingScheduleId;
+        if (editingScheduleId) {
+            body.id = editingScheduleId;
+            body.apply_from_now = !!applyFromNow;
+        }
         const r = await fetch('/api/schedules', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
         });
         const j = await r.json();
         if (!j.success) throw new Error(j.error || 'Error');
 
-        msg(editingScheduleId ? `Horario "${name}" actualizado` : `Horario "${name}" creado`, 'ok');
-        const wasNew = !editingScheduleId;
-        if (wasNew) document.getElementById('newSchName').value = '';
+        if (!editando) {
+            msg(`Horario "${name}" creado`, 'ok');
+            document.getElementById('newSchName').value = '';
+        } else if (applyFromNow) {
+            msg(`Horario "${name}" actualizado desde ahora. Los días pasados conservan el horario anterior.`, 'ok');
+        } else {
+            msg(`Horario "${name}" actualizado para todo el historial.`, 'ok');
+        }
         closeScheduleModal();
         await loadSchedules();
         if (j.id) selectSchedule(j.id);
@@ -2212,7 +2254,7 @@ async function showRetrasoDetalle(userId) {
         const dif = r.salida_diff_min;
         const difTxt = (dif === null || dif === undefined) ? '—' : (dif > 0 ? '+' + dif : String(dif));
         const difColor = (dif === null || dif === undefined) ? '#9ca3af'
-            : (dif > 0 ? '#0f6131' : (dif < 0 ? '#b91c1c' : '#6b7280'));
+            : (dif > 0 ? '#b91c1c' : (dif < 0 ? '#0f6131' : '#6b7280'));
         return `
         <tr>
             <td>${fmtDate(r.date)}</td>
@@ -2221,7 +2263,7 @@ async function showRetrasoDetalle(userId) {
             <td>${r.retraso_min}</td>
             <td>${esc(r.esperado_salida || '')}</td>
             <td>${salidaReal ? esc(salidaReal) : '<span style="color:#9ca3af">—</span>'}</td>
-            <td style="color:${difColor};font-weight:600">${esc(difTxt)}</td>
+            <td style="color:${difColor};font-weight:700">${esc(difTxt)}</td>
         </tr>`;
     }).join('')
         || '<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:20px">Sin días con atraso</td></tr>';

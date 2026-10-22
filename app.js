@@ -232,21 +232,28 @@ function _scheduleSnapshot(sid) {
     return { id: s.id, name: s.name, tolerance_min: Number(s.tolerance_min) || 1, days };
 }
 
-// Agrega una foto del horario vigente desde `at` (fecha/hora local).
-function _addScheduleHistory(userId, sid, at) {
-    const snap = sid ? _scheduleSnapshot(sid) : null;
+// Inserta una foto ya calculada del horario. Se usa tanto para la foto
+// vigente como para conservar la foto anterior cuando se aplica un cambio
+// "desde ahora" a un empleado que todavia no tenia historial.
+function _insertScheduleHistorySnapshot(userId, snap, at) {
     db.run(
         `INSERT INTO user_schedule_history
             (user_id, schedule_id, schedule_name, tolerance_min, days_json, valid_from, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         userId,
-        sid || null,
+        snap ? snap.id : null,
         snap ? snap.name : null,
         snap ? snap.tolerance_min : null,
         snap ? JSON.stringify(snap.days) : null,
         at,
         at
     );
+}
+
+// Agrega una foto del horario vigente desde `at` (fecha/hora local).
+function _addScheduleHistory(userId, sid, at) {
+    const snap = sid ? _scheduleSnapshot(sid) : null;
+    _insertScheduleHistorySnapshot(userId, snap, at);
 }
 
 // Horario vigente de un empleado en un instante dado. Si no hay historial
@@ -1419,9 +1426,12 @@ app.get('/api/schedules', (req, res) => {
 });
 
 app.post('/api/schedules', (req, res) => {
-    const { id, name, days } = req.body || {};
+    const { id, name, days, apply_from_now } = req.body || {};
     const nombre = String(name || '').trim();
     if (!nombre) return res.status(400).json({ success: false, error: 'El nombre del horario es obligatorio' });
+    // Condicion explicita: solo el boton especial la activa. Si no viene,
+    // la edicion normal cambia la plantilla para TODO el historial.
+    const applyFromNow = (apply_from_now === true || apply_from_now === 1 || apply_from_now === '1');
 
     const lista = (Array.isArray(days) ? days : [])
         .map(d => ({
@@ -1433,11 +1443,15 @@ app.post('/api/schedules', (req, res) => {
 
     try {
         const now = new Date().toISOString();
+        const editId = id ? Number(id) : 0;
+        // Foto ANTERIOR: se necesita si el boton especial se usa sobre una
+        // base vieja que todavia no tenia historial para ese empleado.
+        const oldSnap = editId ? _scheduleSnapshot(editId) : null;
         const upsert = db.prepare(
             `INSERT INTO schedules (name, tolerance_min, updated_at) VALUES (?, 1, ?)`
         );
         const tx = db.transaction(() => {
-            let sid = id ? Number(id) : 0;
+            let sid = editId;
             if (sid) {
                 db.run('UPDATE schedules SET name = ?, updated_at = ? WHERE id = ?', nombre, now, sid);
             } else {
@@ -1446,20 +1460,58 @@ app.post('/api/schedules', (req, res) => {
             db.run('DELETE FROM schedule_days WHERE schedule_id = ?', sid);
             const insD = db.prepare('INSERT INTO schedule_days (schedule_id, weekday, start_time, end_time) VALUES (?, ?, ?, ?)');
             for (const d of lista) insD.run(sid, d.weekday, d.start, d.end);
-            // Si se edito un horario existente, sus empleados pasan a una
-            // nueva version desde este momento. Los dias anteriores conservan
-            // la foto que ya estaba en el historial.
-            if (id && sid) {
-                const at = _localIso();
-                for (const u of db.all('SELECT user_id FROM user_schedules WHERE schedule_id = ?', sid)) {
-                    _addScheduleHistory(u.user_id, sid, at);
+
+            if (editId && sid) {
+                if (applyFromNow) {
+                    // BOTON ESPECIAL: el cambio rige desde este momento.
+                    // Los dias anteriores conservan la foto que ya tenian.
+                    const at = _localIso();
+                    for (const u of db.all('SELECT user_id FROM user_schedules WHERE schedule_id = ?', sid)) {
+                        const tieneHistorial = db.get(
+                            'SELECT 1 AS x FROM user_schedule_history WHERE user_id = ? LIMIT 1',
+                            u.user_id
+                        );
+                        if (!tieneHistorial && oldSnap) {
+                            // Sin historial previo: primero se conserva el
+                            // horario anterior para el pasado.
+                            _insertScheduleHistorySnapshot(u.user_id, oldSnap, '2000-01-01 00:00:00');
+                        }
+                        _addScheduleHistory(u.user_id, sid, at);
+                    }
+                } else {
+                    // EDICION NORMAL: la plantilla cambia para todo el
+                    // historial. No se crea una version nueva.
+                    const newSnap = _scheduleSnapshot(sid);
+                    if (newSnap) {
+                        db.run(
+                            `UPDATE user_schedule_history
+                                SET schedule_name = ?, tolerance_min = ?, days_json = ?
+                              WHERE schedule_id = ?`,
+                            newSnap.name, newSnap.tolerance_min, JSON.stringify(newSnap.days), sid
+                        );
+                    }
+                    // Asignados sin foto para este horario (base vieja): se
+                    // crea retroactiva para que la edicion tambien rija antes.
+                    for (const u of db.all('SELECT user_id FROM user_schedules WHERE schedule_id = ?', sid)) {
+                        const tieneFoto = db.get(
+                            'SELECT 1 AS x FROM user_schedule_history WHERE user_id = ? AND schedule_id = ? LIMIT 1',
+                            u.user_id, sid
+                        );
+                        if (!tieneFoto) {
+                            _addScheduleHistory(u.user_id, sid, '2000-01-01 00:00:00');
+                        }
+                    }
                 }
             }
             return sid;
         });
         const sid = tx();
         db.save();
-        res.json({ success: true, id: sid });
+        res.json({
+            success: true,
+            id: sid,
+            applied: editId ? (applyFromNow ? 'from_now' : 'all_history') : 'new',
+        });
     } catch (e) {
         res.status(500).json({ success: false, error: e.message });
     }
@@ -2023,12 +2075,12 @@ app.get('/api/export/retrasos-detalle/excel', async (req, res) => {
         { header: 'Entrada',       key: 'entrada',  width: 14 },
         { header: 'Retraso (min)', key: 'retraso',  width: 14 },
         { header: 'Hora esperada salida', key: 'esperado_salida', width: 20 },
-        { header: 'Hora real salida',     key: 'salida_real',     width: 16 },
+        { header: 'Hora salida',          key: 'salida_real',     width: 16 },
         { header: 'Diferencia (min)',     key: 'salida_diff',     width: 16 },
     ];
     _estiloCabeceraAtrasos(ws.getRow(1));
     for (const r of detalle) {
-        ws.addRow({
+        const row = ws.addRow({
             user_id: r.user_id,
             name: r.name,
             area: r.area || '',
@@ -2040,6 +2092,18 @@ app.get('/api/export/retrasos-detalle/excel', async (req, res) => {
             salida_real: (r.salida || '').slice(11, 19),
             salida_diff: (r.salida_diff_min === null || r.salida_diff_min === undefined) ? '' : r.salida_diff_min,
         });
+        // Diferencia de salida: rojo si salió antes, verde si salió después.
+        const diff = r.salida_diff_min;
+        if (diff !== null && diff !== undefined) {
+            const cell = row.getCell('salida_diff');
+            if (diff > 0) {
+                cell.font = { color: { argb: 'FFB91C1C' }, bold: true };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
+            } else if (diff < 0) {
+                cell.font = { color: { argb: 'FF0F6131' }, bold: true };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDCFCE7' } };
+            }
+        }
     }
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
