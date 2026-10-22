@@ -251,9 +251,47 @@
     .userlist .empty { padding: 14px; text-align: center; color: #9ca3af; font-size: 13px; }
     .hint { font-size: 12px; color: #6b7280; margin-top: 8px; }
 
+    /* Explicación visual de cómo aplicar un cambio de horario */
+    .sch-apply-note {
+        margin-top: 14px;
+        padding: 12px 14px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        background: #fbfcfa;
+    }
+    .sch-apply-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: #0f6131;
+        margin-bottom: 4px;
+    }
+    .sch-apply-row {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 9px 0;
+        border-top: 1px dashed #e5e7eb;
+    }
+    .sch-apply-row:first-of-type { border-top: none; }
+    .sch-apply-row:last-child { padding-bottom: 0; }
+    .sch-apply-badge {
+        flex: 0 0 auto;
+        margin-top: 1px;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .3px;
+        text-transform: uppercase;
+    }
+    .sch-apply-badge-all { background: #dcfce7; color: #0f6131; }
+    .sch-apply-badge-now { background: #fef3c7; color: #92400e; border: 1px solid #f0c84f; }
+    .sch-apply-text { font-size: 12px; line-height: 1.45; color: #4b5563; }
+    .sch-apply-text b { color: #111827; }
+
     .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 50; }
     .modal-mask.open { display: flex; }
-    .modal { background: #fff; border-radius: 12px; padding: 22px; width: 600px; max-width: 96vw; box-shadow: 0 10px 40px rgba(0,0,0,.25); position: relative; }
+    .modal { background: #fff; border-radius: 12px; padding: 22px; width: 600px; max-width: 96vw; max-height: 92vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,.25); position: relative; }
     .modal > .btn-icon { position: absolute; top: 10px; right: 12px; z-index: 2; }
     .modal h2 { font-size: 17px; margin-bottom: 6px; color: #0f6131; }
     .modal .radio { flex-direction: row; align-items: center; gap: 6px; cursor: pointer; }
@@ -452,9 +490,9 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>Fecha</th><th>Hora esperada</th><th>Entrada</th><th>Retraso (min)</th>
-                            <th>Hora esperada salida</th><th>Hora salida</th>
-                            <th title="Rojo = salió antes de la hora esperada; verde = salió después de la hora esperada">Diferencia (min)</th>
+                            <th>Fecha</th><th>Hora esperada</th><th>Entrada</th>
+                            <th>Hora esperada salida</th>
+                            <th title="Rojo = salió antes de la hora esperada; verde = salió después de la hora esperada">Hora salida</th>
                         </tr>
                     </thead>
                     <tbody id="tblRetrasoDet"></tbody>
@@ -681,13 +719,27 @@
         <div id="schDaysBody"></div>
 
         <p class="hint">Haz clic o arrastra dentro de la barra de 24 h para fijar la hora de <b>inicio</b> y <b>fin</b>. Si el fin es anterior al inicio, el horario es <b>nocturno</b> (termina al día siguiente). Los atrasos se calculan con <b>1 minuto</b> de tolerancia: si el horario inicia 08:30, hasta 08:30:59 se considera normal.</p>
-        <p class="hint" id="schEditHint" style="margin:10px 0 0;text-align:right;display:none">
-            <b>Guardar</b> aplica el cambio a todo el historial (días pasados incluidos).
-            <b>Guardar y aplicar desde ahora</b> conserva el horario anterior en los días pasados.
-        </p>
+        <div class="sch-apply-note" id="schEditHint" style="display:none">
+            <div class="sch-apply-title">¿Cómo quieres aplicar este cambio?</div>
+            <div class="sch-apply-row">
+                <span class="sch-apply-badge sch-apply-badge-all">Todo</span>
+                <div class="sch-apply-text">
+                    <b>Guardar en todo el historial</b>: cambia también los días ya trabajados.
+                    Úsalo para corregir una plantilla mal cargada.
+                </div>
+            </div>
+            <div class="sch-apply-row">
+                <span class="sch-apply-badge sch-apply-badge-now">Desde ahora</span>
+                <div class="sch-apply-text">
+                    <b>Guardar y aplicar desde ahora</b>: deja intactos los días pasados y usa el horario nuevo
+                    desde este momento. Úsalo cuando el empleado cambia de horario.
+                </div>
+            </div>
+        </div>
         <div class="toolbar" style="justify-content:flex-end;margin-top:16px">
             <button class="btn btn-ghost" onclick="closeScheduleModal()">Cancelar</button>
-            <button class="btn btn-primary" onclick="saveSchedule()">Guardar</button>
+            <button class="btn btn-primary" id="btnSaveNormal" onclick="saveSchedule()"
+                    title="Aplica el cambio también a los días pasados">Guardar</button>
             <button class="btn btn-special" id="btnSaveFromNow" style="display:none" onclick="saveSchedule(true)"
                     title="Mantiene el horario anterior en los días pasados y aplica el nuevo desde este momento">
                 ✦ Guardar y aplicar desde ahora
@@ -2118,6 +2170,8 @@ function openScheduleModal(id) {
     document.getElementById('schName').focus();
     const btnNow = document.getElementById('btnSaveFromNow');
     if (btnNow) btnNow.style.display = s ? 'inline-flex' : 'none';
+    const btnNormal = document.getElementById('btnSaveNormal');
+    if (btnNormal) btnNormal.textContent = s ? 'Guardar en todo el historial' : 'Guardar';
     const hint = document.getElementById('schEditHint');
     if (hint) hint.style.display = s ? 'block' : 'none';
 }
@@ -2252,21 +2306,21 @@ async function showRetrasoDetalle(userId) {
     document.getElementById('tblRetrasoDet').innerHTML = (j.records || []).map(r => {
         const salidaReal = (r.salida || '').slice(11, 16);
         const dif = r.salida_diff_min;
-        const difTxt = (dif === null || dif === undefined) ? '—' : (dif > 0 ? '+' + dif : String(dif));
-        const difColor = (dif === null || dif === undefined) ? '#9ca3af'
+        const salidaColor = (dif === null || dif === undefined) ? '#9ca3af'
             : (dif > 0 ? '#b91c1c' : (dif < 0 ? '#0f6131' : '#6b7280'));
+        const salidaTitle = (dif === null || dif === undefined) ? ''
+            : (dif > 0 ? 'Salió antes de la hora esperada'
+                : (dif < 0 ? 'Salió después de la hora esperada' : 'Salió a la hora esperada'));
         return `
         <tr>
             <td>${fmtDate(r.date)}</td>
             <td>${esc(r.hora_esperada)}</td>
-            <td><b style="color:#b91c1c">${esc((r.entrada || '').slice(11, 19))}</b></td>
-            <td>${r.retraso_min}</td>
+            <td><b style="color:#b91c1c" title="Entrada con atraso">${esc((r.entrada || '').slice(11, 19))}</b></td>
             <td>${esc(r.esperado_salida || '')}</td>
-            <td>${salidaReal ? esc(salidaReal) : '<span style="color:#9ca3af">—</span>'}</td>
-            <td style="color:${difColor};font-weight:700">${esc(difTxt)}</td>
+            <td style="color:${salidaColor};font-weight:700"${salidaTitle ? ` title="${salidaTitle}"` : ''}>${salidaReal ? esc(salidaReal) : '<span style="color:#9ca3af">—</span>'}</td>
         </tr>`;
     }).join('')
-        || '<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:20px">Sin días con atraso</td></tr>';
+        || '<tr><td colspan="5" style="text-align:center;color:#9ca3af;padding:20px">Sin días con atraso</td></tr>';
 
     const card = document.getElementById('cardRetrasoDet');
     card.style.display = 'block';
