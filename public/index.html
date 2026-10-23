@@ -288,6 +288,14 @@
     .sch-apply-badge-now { background: #fef3c7; color: #92400e; border: 1px solid #f0c84f; }
     .sch-apply-text { font-size: 12px; line-height: 1.45; color: #4b5563; }
     .sch-apply-text b { color: #111827; }
+    .sch-apply-new {
+        margin-top: 10px;
+        padding-top: 9px;
+        border-top: 1px dashed #e5e7eb;
+        font-size: 11.5px;
+        line-height: 1.45;
+        color: #6b7280;
+    }
 
     .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 50; }
     .modal-mask.open { display: flex; }
@@ -720,13 +728,13 @@
         <div id="schDaysBody"></div>
 
         <p class="hint">Haz clic o arrastra dentro de la barra de 24 h para fijar la hora de <b>inicio</b> y <b>fin</b>. Si el fin es anterior al inicio, el horario es <b>nocturno</b> (termina al día siguiente). Los atrasos se calculan con <b>1 minuto</b> de tolerancia: si el horario inicia 08:30, hasta 08:30:59 se considera normal.</p>
-        <div class="sch-apply-note" id="schEditHint" style="display:none">
-            <div class="sch-apply-title">¿Cómo quieres aplicar este cambio?</div>
+        <div class="sch-apply-note" id="schEditHint">
+            <div class="sch-apply-title">¿Cómo quieres aplicar este horario?</div>
             <div class="sch-apply-row">
                 <span class="sch-apply-badge sch-apply-badge-all">Todo</span>
                 <div class="sch-apply-text">
-                    <b>Guardar en todo el historial</b>: cambia también los días ya trabajados.
-                    Úsalo para corregir una plantilla mal cargada.
+                    <b>Guardar en todo el historial</b>: aplica el horario a todo el historial del empleado,
+                    incluidos los días pasados. Úsalo para corregir una plantilla mal cargada.
                 </div>
             </div>
             <div class="sch-apply-row">
@@ -736,12 +744,15 @@
                     desde este momento. Úsalo cuando el empleado cambia de horario.
                 </div>
             </div>
+            <div class="sch-apply-new" id="schApplyNewNote" style="display:none">
+                En un horario nuevo, esta elección se guarda y se aplicará cuando lo asignes a un empleado.
+            </div>
         </div>
         <div class="toolbar" style="justify-content:flex-end;margin-top:16px">
             <button class="btn btn-ghost" onclick="closeScheduleModal()">Cancelar</button>
             <button class="btn btn-primary" id="btnSaveNormal" onclick="saveSchedule()"
-                    title="Aplica el cambio también a los días pasados">Guardar</button>
-            <button class="btn btn-special" id="btnSaveFromNow" style="display:none" onclick="saveSchedule(true)"
+                    title="Aplica el cambio también a los días pasados">Guardar en todo el historial</button>
+            <button class="btn btn-special" id="btnSaveFromNow" onclick="saveSchedule(true)"
                     title="Mantiene el horario anterior en los días pasados y aplica el nuevo desde este momento">
                 ✦ Guardar y aplicar desde ahora
             </button>
@@ -2170,11 +2181,13 @@ function openScheduleModal(id) {
     document.getElementById('modalHorario').classList.add('open');
     document.getElementById('schName').focus();
     const btnNow = document.getElementById('btnSaveFromNow');
-    if (btnNow) btnNow.style.display = s ? 'inline-flex' : 'none';
+    if (btnNow) btnNow.style.display = 'inline-flex';
     const btnNormal = document.getElementById('btnSaveNormal');
-    if (btnNormal) btnNormal.textContent = s ? 'Guardar en todo el historial' : 'Guardar';
+    if (btnNormal) btnNormal.textContent = 'Guardar en todo el historial';
     const hint = document.getElementById('schEditHint');
-    if (hint) hint.style.display = s ? 'block' : 'none';
+    if (hint) hint.style.display = 'block';
+    const newNote = document.getElementById('schApplyNewNote');
+    if (newNote) newNote.style.display = s ? 'none' : 'block';
 }
 
 function closeScheduleModal() {
@@ -2200,21 +2213,21 @@ async function saveSchedule(applyFromNow = false) {
     if (!days.length) { schMsg('Marca al menos un día con su hora de inicio y fin.', 'err'); return; }
 
     const editando = !!editingScheduleId;
-    if (editando && applyFromNow) {
-        const ok = confirm(
-            '¿Aplicar el horario editado SOLO desde este momento?\n\n' +
-            'Los días anteriores conservarán el horario que tenían. ' +
-            'Las nuevas marcaciones usarán el horario nuevo.'
+    if (applyFromNow) {
+        const ok = confirm(editando
+            ? '¿Aplicar el horario editado SOLO desde este momento?\n\n' +
+              'Los días anteriores conservarán el horario que tenían. ' +
+              'Las nuevas marcaciones usarán el horario nuevo.'
+            : '¿Guardar este horario con la condición "desde ahora"?\n\n' +
+              'Cuando lo asignes a un empleado sin horario previo, el horario regirá ' +
+              'desde ese momento y no se evaluarán sus marcaciones anteriores.'
         );
         if (!ok) return;
     }
 
     try {
-        const body = { name, days };
-        if (editingScheduleId) {
-            body.id = editingScheduleId;
-            body.apply_from_now = !!applyFromNow;
-        }
+        const body = { name, days, apply_from_now: !!applyFromNow };
+        if (editingScheduleId) body.id = editingScheduleId;
         const r = await fetch('/api/schedules', {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
         });
@@ -2222,7 +2235,9 @@ async function saveSchedule(applyFromNow = false) {
         if (!j.success) throw new Error(j.error || 'Error');
 
         if (!editando) {
-            msg(`Horario "${name}" creado`, 'ok');
+            msg(applyFromNow
+                ? `Horario "${name}" creado. Se aplicará desde ahora cuando lo asignes.`
+                : `Horario "${name}" creado`, 'ok');
             document.getElementById('newSchName').value = '';
         } else if (applyFromNow) {
             msg(`Horario "${name}" actualizado desde ahora. Los días pasados conservan el horario anterior.`, 'ok');

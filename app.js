@@ -1409,13 +1409,14 @@ app.get('/api/schedules', (req, res) => {
     for (const r of db.all('SELECT schedule_id, COUNT(*) AS n FROM user_schedules WHERE schedule_id IS NOT NULL GROUP BY schedule_id')) {
         conteo[r.schedule_id] = r.n;
     }
-    const scheds = db.all('SELECT id, name, tolerance_min FROM schedules ORDER BY name COLLATE NOCASE');
+    const scheds = db.all('SELECT id, name, tolerance_min, apply_from_now FROM schedules ORDER BY name COLLATE NOCASE');
     const days = db.all('SELECT schedule_id, weekday, start_time, end_time FROM schedule_days ORDER BY weekday');
 
     res.json(scheds.map(s => ({
         id: s.id,
         name: s.name,
         tolerance_min: s.tolerance_min || 1,
+        apply_from_now: !!s.apply_from_now,
         empleados: conteo[s.id] || 0,
         days: days.filter(d => d.schedule_id === s.id).map(d => ({
             weekday: d.weekday,
@@ -1448,14 +1449,17 @@ app.post('/api/schedules', (req, res) => {
         // base vieja que todavia no tenia historial para ese empleado.
         const oldSnap = editId ? _scheduleSnapshot(editId) : null;
         const upsert = db.prepare(
-            `INSERT INTO schedules (name, tolerance_min, updated_at) VALUES (?, 1, ?)`
+            `INSERT INTO schedules (name, tolerance_min, apply_from_now, updated_at) VALUES (?, 1, ?, ?)`
         );
         const tx = db.transaction(() => {
             let sid = editId;
             if (sid) {
-                db.run('UPDATE schedules SET name = ?, updated_at = ? WHERE id = ?', nombre, now, sid);
+                db.run(
+                    'UPDATE schedules SET name = ?, apply_from_now = ?, updated_at = ? WHERE id = ?',
+                    nombre, applyFromNow ? 1 : 0, now, sid
+                );
             } else {
-                sid = upsert.run(nombre, now).lastInsertRowid;
+                sid = upsert.run(nombre, applyFromNow ? 1 : 0, now).lastInsertRowid;
             }
             db.run('DELETE FROM schedule_days WHERE schedule_id = ?', sid);
             const insD = db.prepare('INSERT INTO schedule_days (schedule_id, weekday, start_time, end_time) VALUES (?, ?, ?, ?)');
@@ -1542,7 +1546,8 @@ app.put('/api/users/:user_id/schedule', (req, res) => {
         if (sid !== null && (!Number.isInteger(sid) || sid <= 0)) {
             return res.status(400).json({ success: false, error: 'schedule_id invalido' });
         }
-        if (sid && !db.get('SELECT id FROM schedules WHERE id = ?', sid)) {
+        const target = sid ? db.get('SELECT id, apply_from_now FROM schedules WHERE id = ?', sid) : null;
+        if (sid && !target) {
             return res.status(404).json({ success: false, error: 'El horario no existe' });
         }
         // Solo se agrega historial cuando la asignacion realmente cambia.
@@ -1550,13 +1555,15 @@ app.put('/api/users/:user_id/schedule', (req, res) => {
         const curSid = cur ? Number(cur.schedule_id) : null;
         if (curSid !== sid) {
             // Primera vez que se le asigna un horario: rige para TODAS sus
-            // marcaciones, incluso las anteriores. Si ya tuvo uno, el cambio
-            // rige desde este momento y el pasado se conserva.
+            // marcaciones, incluso las anteriores, salvo que el horario se
+            // haya creado/editado con "aplicar desde ahora". Si ya tuvo uno,
+            // el cambio rige desde este momento y el pasado se conserva.
             const yaTuvo = (curSid !== null) || !!db.get(
                 'SELECT 1 AS x FROM user_schedule_history WHERE user_id = ? AND schedule_id IS NOT NULL LIMIT 1',
                 userId
             );
-            const at = (sid && !yaTuvo) ? '2000-01-01 00:00:00' : _localIso();
+            const horarioDesdeAhora = !!(target && Number(target.apply_from_now) === 1);
+            const at = (sid && !yaTuvo && !horarioDesdeAhora) ? '2000-01-01 00:00:00' : _localIso();
             _addScheduleHistory(userId, sid, at);
         }
         if (!sid) {

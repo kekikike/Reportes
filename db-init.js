@@ -62,6 +62,7 @@ const SCHEMA_SQL = `
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         tolerance_min INTEGER DEFAULT 1,
+        apply_from_now INTEGER DEFAULT 0,
         updated_at TEXT
     );
 
@@ -208,6 +209,15 @@ function migrate(db) {
     // Garantiza que todo codigo referenciado en user_areas exista en areas
     // (por si la relacion llego de una BD donde la tabla de areas no estaba).
     db.exec("INSERT OR IGNORE INTO areas (code, name, updated_at) SELECT DISTINCT area_code, NULL, datetime('now') FROM user_areas WHERE area_code IS NOT NULL AND area_code <> ''");
+
+    // ---- Condicion de aplicacion del horario ------------------------
+    // 0 = la primera asignacion rige para todo el historial del empleado.
+    // 1 = la primera asignacion rige solo desde el momento de asignarlo.
+    // Se elige con el boton "Guardar y aplicar desde ahora" del modal.
+    const schedCols = db.all('PRAGMA table_info(schedules)');
+    if (!schedCols.some(c => c.name === 'apply_from_now')) {
+        db.exec('ALTER TABLE schedules ADD COLUMN apply_from_now INTEGER DEFAULT 0');
+    }
 
     // ---- Historial de horarios --------------------------------------
     // Las BD anteriores guardaban una sola asignacion por empleado. Se
