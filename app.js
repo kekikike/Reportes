@@ -1554,16 +1554,13 @@ app.put('/api/users/:user_id/schedule', (req, res) => {
         const cur = db.get('SELECT schedule_id FROM user_schedules WHERE user_id = ?', userId);
         const curSid = cur ? Number(cur.schedule_id) : null;
         if (curSid !== sid) {
-            // Primera vez que se le asigna un horario: rige para TODAS sus
-            // marcaciones, incluso las anteriores, salvo que el horario se
-            // haya creado/editado con "aplicar desde ahora". Si ya tuvo uno,
-            // el cambio rige desde este momento y el pasado se conserva.
-            const yaTuvo = (curSid !== null) || !!db.get(
-                'SELECT 1 AS x FROM user_schedule_history WHERE user_id = ? AND schedule_id IS NOT NULL LIMIT 1',
-                userId
-            );
+            // La condicion viaja con el horario: si se guardo "en todo el
+            // historial" (apply_from_now = 0), al asignarlo rige tambien para
+            // las marcaciones anteriores, aunque el empleado ya tuviera otro
+            // horario. Si se guardo "desde ahora" (apply_from_now = 1), el
+            // pasado se conserva y el nuevo horario rige desde este momento.
             const horarioDesdeAhora = !!(target && Number(target.apply_from_now) === 1);
-            const at = (sid && !yaTuvo && !horarioDesdeAhora) ? '2000-01-01 00:00:00' : _localIso();
+            const at = (sid && !horarioDesdeAhora) ? '2000-01-01 00:00:00' : _localIso();
             _addScheduleHistory(userId, sid, at);
         }
         if (!sid) {
